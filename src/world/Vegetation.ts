@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Terrain } from './Terrain'
 import { Biome, type BiomeId } from './Biomes'
+import type { QualityTier } from '../game/PerformanceManager'
 
 type VegetationOptions = {
   seed: string
@@ -29,6 +30,14 @@ export class Vegetation {
 
   private readonly mats: THREE.ShaderMaterial[] = []
   private time = 0
+  private quality: QualityTier = 'high'
+
+  private forestMesh: THREE.InstancedMesh | null = null
+  private pineMesh: THREE.InstancedMesh | null = null
+  private forestFilled = 0
+  private pineFilled = 0
+  private forestCapacity = 0
+  private pineCapacity = 0
 
   constructor(opts: VegetationOptions) {
     this.object3d = new THREE.Group()
@@ -53,6 +62,11 @@ export class Vegetation {
 
     this.object3d.add(forestTrees)
     this.object3d.add(pineTrees)
+
+    this.forestMesh = forestTrees as THREE.InstancedMesh
+    this.pineMesh = pineTrees as THREE.InstancedMesh
+    this.forestCapacity = (forestTrees as THREE.InstancedMesh).count
+    this.pineCapacity = (pineTrees as THREE.InstancedMesh).count
 
     // Scatter instances with biome-dependent density.
     const half = opts.terrain.size * 0.5
@@ -85,6 +99,12 @@ export class Vegetation {
 
     ;(forestTrees as THREE.InstancedMesh).instanceMatrix.needsUpdate = true
     ;(pineTrees as THREE.InstancedMesh).instanceMatrix.needsUpdate = true
+
+    // Track how many were actually filled so we can reduce draw cost without re-scattering.
+    this.forestFilled = forestIdx
+    this.pineFilled = pineIdx
+
+    this.applyQualityImmediately()
   }
 
   update(dt: number, windDirXZ: THREE.Vector2) {
@@ -93,6 +113,20 @@ export class Vegetation {
       m.uniforms.uTime.value = this.time
       m.uniforms.uWind.value.set(windDirXZ.x, windDirXZ.y)
     }
+  }
+
+  setQuality(tier: QualityTier) {
+    this.quality = tier
+    this.applyQualityImmediately()
+  }
+
+  private applyQualityImmediately() {
+    const factor = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.8 : 0.6
+    if (this.forestMesh) this.forestMesh.count = Math.max(0, Math.min(this.forestCapacity, Math.floor(this.forestFilled * factor)))
+    if (this.pineMesh) this.pineMesh.count = Math.max(0, Math.min(this.pineCapacity, Math.floor(this.pineFilled * factor)))
+
+    const sway = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.85 : 0.7
+    for (const m of this.mats) m.uniforms.uSwayScale.value = sway
   }
 
   private makeTreeInstanced(opts: {
@@ -187,6 +221,7 @@ function makeTreeWindMaterial() {
       uLeafA: { value: new THREE.Color(0x4f7d3a) },
       uLeafB: { value: new THREE.Color(0x9a7a2a) },
       uTrunk: { value: new THREE.Color(0x4a3425) },
+      uSwayScale: { value: 1.0 },
     },
     vertexShader: /* glsl */ `
       attribute float aIsLeaf;
@@ -195,6 +230,7 @@ function makeTreeWindMaterial() {
       varying vec3 vWorldPos;
       uniform float uTime;
       uniform vec2 uWind;
+      uniform float uSwayScale;
 
       void main() {
         vIsLeaf = aIsLeaf;
@@ -205,7 +241,7 @@ function makeTreeWindMaterial() {
 
         vec2 wind = normalize(uWind);
         float sway = sin(uTime * 1.3 + phase) * 0.16 + sin(uTime * 2.1 + phase * 1.7) * 0.06;
-        p.xz += wind * sway * w * (0.35 + 0.65 * aIsLeaf);
+        p.xz += wind * sway * uSwayScale * w * (0.35 + 0.65 * aIsLeaf);
 
         vec4 wp = modelMatrix * instanceMatrix * vec4(p, 1.0);
         vWorldPos = wp.xyz;

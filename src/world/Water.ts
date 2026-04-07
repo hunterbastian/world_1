@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { Terrain } from './Terrain'
+import type { QualityTier } from '../game/PerformanceManager'
 
 type WaterOptions = {
   seed: string
@@ -79,6 +80,12 @@ export class Water {
       m.uniforms.uTime.value = this.t
       m.uniforms.uWind.value.set(windDirXZ.x, windDirXZ.y)
     }
+  }
+
+  setQuality(tier: QualityTier) {
+    const detail = tier === 'high' ? 1.0 : tier === 'medium' ? 0.7 : 0.45
+    this.oceanMat.uniforms.uDetail.value = detail
+    for (const m of this.riverMats) m.uniforms.uDetail.value = detail
   }
 
   private generateDownhillPath(terrain: Terrain, rng: () => number, seaLevel: number, riverIndex: number) {
@@ -182,6 +189,7 @@ function makeOceanMaterial() {
       uColorDeep: { value: new THREE.Color(0x0a1b2a) },
       uColorShallow: { value: new THREE.Color(0x1c4a62) },
       uAlpha: { value: 0.85 },
+      uDetail: { value: 1.0 },
     },
     vertexShader: /* glsl */ `
       varying vec3 vWorldPos;
@@ -201,6 +209,7 @@ function makeOceanMaterial() {
       uniform vec3 uColorDeep;
       uniform vec3 uColorShallow;
       uniform float uAlpha;
+      uniform float uDetail;
 
       float hash(vec2 p) {
         p = fract(p * vec2(123.34, 345.45));
@@ -222,13 +231,13 @@ function makeOceanMaterial() {
       void main() {
         vec2 p = vWorldPos.xz * 0.006;
         vec2 drift = normalize(uWind) * (uTime * 0.02);
-        float n = noise(p + drift) * 0.7 + noise(p * 2.0 - drift * 1.7) * 0.3;
+        float n = noise(p + drift) * 0.7 + noise(p * 2.0 - drift * 1.7) * 0.3 * uDetail;
 
         vec3 V = normalize(cameraPosition - vWorldPos);
         float fres = pow(1.0 - max(0.0, dot(normalize(vNormalW), V)), 3.0);
 
         vec3 col = mix(uColorDeep, uColorShallow, clamp(n * 1.15, 0.0, 1.0));
-        col += fres * 0.18;
+        col += fres * (0.12 + 0.06 * uDetail);
 
         gl_FragColor = vec4(col, uAlpha);
       }
@@ -245,6 +254,7 @@ function makeRiverMaterial() {
       uWind: { value: new THREE.Vector2(1, 0) },
       uColor: { value: new THREE.Color(0x2a6e86) },
       uAlpha: { value: 0.9 },
+      uDetail: { value: 1.0 },
     },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
@@ -266,6 +276,7 @@ function makeRiverMaterial() {
       uniform vec2 uWind;
       uniform vec3 uColor;
       uniform float uAlpha;
+      uniform float uDetail;
 
       float hash(vec2 p) {
         p = fract(p * vec2(123.34, 345.45));
@@ -287,13 +298,13 @@ function makeRiverMaterial() {
       void main() {
         float flow = vUv.y * 6.0 - uTime * 0.65;
         vec2 p = vec2(vUv.x * 8.0, flow);
-        float n = noise(p) * 0.6 + noise(p * 2.0) * 0.4;
+        float n = noise(p) * 0.6 + noise(p * 2.0) * 0.4 * uDetail;
 
         vec3 V = normalize(cameraPosition - vWorldPos);
         float fres = pow(1.0 - max(0.0, dot(normalize(vNormalW), V)), 3.0);
 
         float edge = smoothstep(0.0, 0.08, vUv.x) * (1.0 - smoothstep(0.92, 1.0, vUv.x));
-        vec3 col = uColor + n * 0.08 + fres * 0.12;
+        vec3 col = uColor + n * (0.05 + 0.03 * uDetail) + fres * (0.08 + 0.04 * uDetail);
         gl_FragColor = vec4(col, uAlpha * edge);
       }
     `,

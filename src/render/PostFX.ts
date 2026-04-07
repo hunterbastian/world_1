@@ -3,6 +3,7 @@ import { EffectComposer } from 'postprocessing'
 import { RenderPass } from 'postprocessing'
 import { EffectPass } from 'postprocessing'
 import { Effect } from 'postprocessing'
+import type { QualityTier } from '../game/PerformanceManager'
 
 class BiomePaletteEffect extends Effect {
   constructor() {
@@ -72,6 +73,10 @@ class FilmGrainEffect extends Effect {
   setTime(t: number) {
     ;(this.uniforms.get('uTime') as THREE.Uniform).value = t
   }
+
+  setAmount(v: number) {
+    ;(this.uniforms.get('uAmount') as THREE.Uniform).value = v
+  }
 }
 
 class GodRaysEffect extends Effect {
@@ -79,6 +84,7 @@ class GodRaysEffect extends Effect {
     super('GodRaysEffect', /* glsl */ `
       uniform vec2 uSunUv;
       uniform float uIntensity;
+      uniform float uSamples;
 
       void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
         vec3 col = inputColor.rgb;
@@ -95,6 +101,7 @@ class GodRaysEffect extends Effect {
 
         vec2 coord = uv;
         for (int i = 0; i < 20; i++) {
+          if (float(i) >= uSamples) break;
           coord += dir * 0.012;
           vec3 s = texture2D(inputBuffer, coord).rgb;
           float l = dot(s, vec3(0.2126, 0.7152, 0.0722));
@@ -109,6 +116,7 @@ class GodRaysEffect extends Effect {
       uniforms: new Map<string, THREE.Uniform>([
         ['uSunUv', new THREE.Uniform(new THREE.Vector2(0.5, 0.5))],
         ['uIntensity', new THREE.Uniform(0.25)],
+        ['uSamples', new THREE.Uniform(20)],
       ]),
     })
   }
@@ -120,6 +128,10 @@ class GodRaysEffect extends Effect {
   setIntensity(v: number) {
     ;(this.uniforms.get('uIntensity') as THREE.Uniform).value = v
   }
+
+  setSamples(n: number) {
+    ;(this.uniforms.get('uSamples') as THREE.Uniform).value = Math.max(2, Math.min(20, Math.floor(n)))
+  }
 }
 
 class FogVeilEffect extends Effect {
@@ -128,6 +140,7 @@ class FogVeilEffect extends Effect {
       uniform sampler2D tBiome;
       uniform float uTime;
       uniform float uStrength;
+      uniform float uDetail;
 
       float hash(vec2 p) {
         p = fract(p * vec2(123.34, 345.45));
@@ -153,7 +166,7 @@ class FogVeilEffect extends Effect {
         float horizon = smoothstep(0.18, 0.55, uv.y) * (1.0 - smoothstep(0.72, 0.98, uv.y));
         float valley = horizon;
         vec2 drift = vec2(uTime * 0.01, -uTime * 0.007);
-        float n = noise(uv * 6.0 + drift) * 0.6 + noise(uv * 14.0 - drift * 1.7) * 0.4;
+        float n = noise(uv * 6.0 + drift) * 0.6 + noise(uv * 14.0 - drift * 1.7) * 0.4 * uDetail;
         n = n * 2.0 - 1.0;
 
         float biome = texture2D(tBiome, uv).r * 255.0;
@@ -171,6 +184,7 @@ class FogVeilEffect extends Effect {
         ['tBiome', new THREE.Uniform(null)],
         ['uTime', new THREE.Uniform(0)],
         ['uStrength', new THREE.Uniform(0.12)],
+        ['uDetail', new THREE.Uniform(1.0)],
       ]),
     })
   }
@@ -186,6 +200,10 @@ class FogVeilEffect extends Effect {
   setStrength(v: number) {
     ;(this.uniforms.get('uStrength') as THREE.Uniform).value = v
   }
+
+  setDetail(v: number) {
+    ;(this.uniforms.get('uDetail') as THREE.Uniform).value = THREE.MathUtils.clamp(v, 0.0, 1.0)
+  }
 }
 
 export class PostFX {
@@ -199,6 +217,7 @@ export class PostFX {
   private readonly godRays: GodRaysEffect
 
   private time = 0
+  private quality: QualityTier = 'high'
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
     this.composer = new EffectComposer(renderer)
@@ -222,6 +241,10 @@ export class PostFX {
     this.composer.addPass(new EffectPass(camera, this.biomeEffect, this.godRays, this.fogVeil, this.grainEffect))
   }
 
+  setQuality(tier: QualityTier) {
+    this.quality = tier
+  }
+
   resize(w: number, h: number) {
     this.composer.setSize(w, h)
     this.biomeTarget.setSize(w, h)
@@ -230,6 +253,21 @@ export class PostFX {
   update(dt: number, sunUv: THREE.Vector2, godRayIntensity: number, fogStrength: number) {
     this.time += dt
     this.grainEffect.setTime(this.time)
+
+    // Apply quality knobs gradually (tier changes are already hysteresis-gated).
+    const k = 1 - Math.exp(-dt * 2.2)
+    const targetSamples = this.quality === 'high' ? 20 : this.quality === 'medium' ? 14 : 10
+    const curSamples = (this.godRays.uniforms.get('uSamples') as THREE.Uniform).value as number
+    this.godRays.setSamples(THREE.MathUtils.lerp(curSamples, targetSamples, k))
+
+    const targetFogDetail = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.7 : 0.45
+    const curFogDetail = (this.fogVeil.uniforms.get('uDetail') as THREE.Uniform).value as number
+    this.fogVeil.setDetail(THREE.MathUtils.lerp(curFogDetail, targetFogDetail, k))
+
+    const targetGrain = this.quality === 'high' ? 0.02 : this.quality === 'medium' ? 0.018 : 0.016
+    const curGrain = (this.grainEffect.uniforms.get('uAmount') as THREE.Uniform).value as number
+    this.grainEffect.setAmount(THREE.MathUtils.lerp(curGrain, targetGrain, k))
+
     this.godRays.setSunUv(sunUv)
     this.godRays.setIntensity(godRayIntensity)
     this.fogVeil.setTime(this.time)

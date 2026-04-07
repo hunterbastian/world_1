@@ -15,6 +15,8 @@ import { HUD } from '../ui/HUD'
 import { Campfires } from '../world/Campfires'
 import { AudioSystem } from '../audio/AudioSystem'
 import { WorldMap } from '../ui/WorldMap'
+import { PerformanceManager } from './PerformanceManager'
+import type { QualityTier } from './PerformanceManager'
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
@@ -38,6 +40,13 @@ export class Game {
   private campfires: Campfires | null = null
   private audio: AudioSystem | null = null
   private worldMap: WorldMap | null = null
+  private readonly perf = new PerformanceManager()
+  private qualityTier: QualityTier = 'high'
+  private compass = {
+    t: 0,
+    angle: 0,
+    has: false,
+  }
   private rest = {
     active: false,
     hold: 0,
@@ -89,6 +98,14 @@ export class Game {
   private tick = () => {
     const dt = Math.min(this.clock.getDelta(), 1 / 20)
 
+    const perf = this.perf.update(dt)
+    if (perf.changed) {
+      this.qualityTier = perf.tier
+      this.postfx?.setQuality(this.qualityTier)
+      this.vegetation?.setQuality(this.qualityTier)
+      this.water?.setQuality(this.qualityTier)
+    }
+
     this.sky?.update(dt, this.renderer)
     if (this.sky) {
       this.rim.sunDir.copy(this.sky.sunDirection)
@@ -132,21 +149,30 @@ export class Game {
     if (this.hud && this.player) {
       this.hud.setStamina(this.player.stamina)
 
-      const nearest = this.poi?.nearestUndiscovered(this.player.position)
-      if (nearest) {
-        const to = nearest.position.clone().sub(this.player.position)
-        to.y = 0
-        to.normalize()
+      // Throttle compass math (and nearest-POI scan) to reduce CPU churn.
+      this.compass.t += dt
+      if (this.compass.t >= 1 / 12) {
+        this.compass.t = 0
+        const nearest = this.poi?.nearestUndiscovered(this.player.position)
+        if (nearest) {
+          const to = nearest.position.clone().sub(this.player.position)
+          to.y = 0
+          to.normalize()
 
-        // Angle relative to camera forward.
-        const fwd = new THREE.Vector3()
-        this.camera.getWorldDirection(fwd)
-        fwd.y = 0
-        fwd.normalize()
+          // Angle relative to camera forward.
+          const fwd = new THREE.Vector3()
+          this.camera.getWorldDirection(fwd)
+          fwd.y = 0
+          fwd.normalize()
 
-        const ang = Math.atan2(to.x, to.z) - Math.atan2(fwd.x, fwd.z)
-        this.hud.setCompassAngle(ang)
+          this.compass.angle = Math.atan2(to.x, to.z) - Math.atan2(fwd.x, fwd.z)
+          this.compass.has = true
+        } else {
+          this.compass.has = false
+        }
       }
+
+      if (this.compass.has) this.hud.setCompassAngle(this.compass.angle)
     }
 
     // Reveal fog-of-war around player constantly.
@@ -236,15 +262,18 @@ export class Game {
       seaLevel: -2,
       riverCount: 2,
     })
+    this.water.setQuality(this.qualityTier)
     this.scene.add(this.water.object3d)
 
     this.vegetation = new Vegetation({
       seed: 'world-seed-001',
       terrain: this.terrain,
     })
+    this.vegetation.setQuality(this.qualityTier)
     this.scene.add(this.vegetation.object3d)
 
     this.postfx = new PostFX(this.renderer, this.scene, this.camera)
+    this.postfx.setQuality(this.qualityTier)
     applyRimLightToScene(this.scene, this.rim)
 
     this.poi = new PointsOfInterest({ seed: 'world-seed-001', terrain: this.terrain })
