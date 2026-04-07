@@ -17,6 +17,7 @@ export class Input {
   private journalToggle = false
   private interact = false
   private dragging = false
+  private hovering = false
   private lastClientX: number | null = null
   private lastClientY: number | null = null
 
@@ -27,6 +28,8 @@ export class Input {
     window.addEventListener('keyup', this.onKeyUp)
     window.addEventListener('mousemove', this.onMouseMove)
     this.el.addEventListener('pointerdown', this.onPointerDown)
+    this.el.addEventListener('mouseenter', this.onMouseEnter)
+    this.el.addEventListener('mouseleave', this.onMouseLeave)
     window.addEventListener('pointerup', this.onPointerUp)
   }
 
@@ -35,6 +38,8 @@ export class Input {
     window.removeEventListener('keyup', this.onKeyUp)
     window.removeEventListener('mousemove', this.onMouseMove)
     this.el.removeEventListener('pointerdown', this.onPointerDown)
+    this.el.removeEventListener('mouseenter', this.onMouseEnter)
+    this.el.removeEventListener('mouseleave', this.onMouseLeave)
     window.removeEventListener('pointerup', this.onPointerUp)
   }
 
@@ -72,6 +77,20 @@ export class Input {
     this.lastClientY = null
   }
 
+  private onMouseEnter = (e: MouseEvent) => {
+    this.hovering = true
+    this.lastClientX = e.clientX
+    this.lastClientY = e.clientY
+  }
+
+  private onMouseLeave = () => {
+    this.hovering = false
+    if (!this.dragging) {
+      this.lastClientX = null
+      this.lastClientY = null
+    }
+  }
+
   private onKeyDown = (e: KeyboardEvent) => {
     if (e.code === 'Tab') {
       e.preventDefault()
@@ -91,14 +110,15 @@ export class Input {
 
   private onMouseMove = (e: MouseEvent) => {
     const locked = document.pointerLockElement === this.el
-    if (!locked && !this.dragging) return
+    const allowHoverLook = this.hovering && document.hasFocus()
+    if (!locked && !this.dragging && !allowHoverLook) return
 
     let dx = e.movementX || 0
     let dy = e.movementY || 0
 
     // In many embedded/browser contexts movementX/Y can be 0 without pointer lock.
-    // When dragging (but not locked), compute deltas from client coords.
-    if (!locked && this.dragging) {
+    // When not pointer-locked, compute deltas from client coords.
+    if (!locked) {
       if (this.lastClientX != null && this.lastClientY != null) {
         dx = e.clientX - this.lastClientX
         dy = e.clientY - this.lastClientY

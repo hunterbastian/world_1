@@ -35,8 +35,11 @@ export class Player {
   private readonly accel = 10.0
   private readonly decel = 14.0
   private readonly turnRate = 7.5
-  // Steep-slope gating: tuned to feel Skyrim-ish (passes are doable, sheer faces are blocked).
-  private readonly maxClimbSlope = 0.27
+  // Climb limit per frame (world units). Safer than slope-at-destination alone — discrete
+  // heightfields can report huge local slope and trap the player on “flat” ground.
+  private readonly maxStepUp = 0.48
+  // Optional: still block brutal walls even if a single step sneaks under maxStepUp.
+  private readonly maxClimbSlope = 0.55
 
   constructor(opts: PlayerOptions) {
     this.terrain = opts.terrain
@@ -117,17 +120,32 @@ export class Player {
       }
     }
 
-    // Position integrate + steep-slope gating (prevents brute-climbing).
-    const nextX = this.position.x + this.velocity.x * dt
-    const nextZ = this.position.z + this.velocity.z * dt
-    const slope = this.terrain.slopeAtXZ(nextX, nextZ)
-    if (slope <= this.maxClimbSlope) {
-      this.position.x = nextX
-      this.position.z = nextZ
-    } else {
-      // Allow sliding sideways a bit (feels less like an invisible wall).
-      this.velocity.x *= 0.25
-      this.velocity.z *= 0.25
+    // Position integrate: step-up limit + axis slide (avoids getting stuck on mesh slope noise).
+    const px = this.position.x
+    const pz = this.position.z
+    const h0 = this.terrain.heightAtXZ(px, pz)
+    const dx = this.velocity.x * dt
+    const dz = this.velocity.z * dt
+
+    const tryStep = (sx: number, sz: number): boolean => {
+      if (Math.abs(sx) < 1e-6 && Math.abs(sz) < 1e-6) return false
+      const nx = px + sx
+      const nz = pz + sz
+      const h1 = this.terrain.heightAtXZ(nx, nz)
+      const climb = h1 - h0
+      if (climb > this.maxStepUp) return false
+      const slope = this.terrain.slopeAtXZ(nx, nz)
+      if (climb > 0.08 && slope > this.maxClimbSlope) return false
+      this.position.x = nx
+      this.position.z = nz
+      return true
+    }
+
+    if (!tryStep(dx, dz)) {
+      if (!tryStep(dx, 0) && !tryStep(0, dz)) {
+        this.velocity.x *= 0.35
+        this.velocity.z *= 0.35
+      }
     }
 
     // Stick to terrain height (simple grounding for now)

@@ -135,6 +135,9 @@ export class Terrain {
       if (biome === 'snowy_mountains') continue
 
       const slope = this.slopeAtXZ(x, z)
+      // Never spawn on steep ground (avoids immediate movement dead-zones on noisy heightfields).
+      if (slope > 0.22) continue
+
       // Lower slope is better; moderate elevation preferred.
       const flatScore = 1 / (0.12 + slope)
       const elevScore = 1 - Math.abs(y - 6) / 18
