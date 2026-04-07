@@ -7,14 +7,23 @@ export type PerformanceManagerOptions = {
    */
   emaHalfLifeSec?: number
 
-  /** Degrade if EMA frame time stays above this (seconds). */
-  degradeMs?: number
+  /** Degrade from high -> medium if EMA stays above this (ms). */
+  degradeToMediumMs?: number
 
-  /** Upgrade if EMA frame time stays below this (seconds). */
-  upgradeMs?: number
+  /** Degrade from medium -> low if EMA stays above this (ms). */
+  degradeToLowMs?: number
 
-  /** Seconds over/under threshold before changing tier. */
-  sustainSec?: number
+  /** Upgrade from medium -> high if EMA stays below this (ms). */
+  upgradeToHighMs?: number
+
+  /** Upgrade from low -> medium if EMA stays below this (ms). */
+  upgradeToMediumMs?: number
+
+  /** Seconds over threshold before degrading. */
+  degradeSustainSec?: number
+
+  /** Seconds under threshold before upgrading. */
+  upgradeSustainSec?: number
 
   /** Extra delay after any tier change (seconds). Prevents oscillation. */
   cooldownSec?: number
@@ -33,9 +42,12 @@ export class PerformanceManager {
   public emaMs = 16.7
 
   private readonly halfLifeSec: number
-  private readonly degradeMs: number
-  private readonly upgradeMs: number
-  private readonly sustainSec: number
+  private readonly degradeToMediumMs: number
+  private readonly degradeToLowMs: number
+  private readonly upgradeToHighMs: number
+  private readonly upgradeToMediumMs: number
+  private readonly degradeSustainSec: number
+  private readonly upgradeSustainSec: number
   private readonly cooldownSec: number
 
   private overFor = 0
@@ -43,11 +55,21 @@ export class PerformanceManager {
   private cooldown = 0
 
   constructor(opts: PerformanceManagerOptions = {}) {
-    this.halfLifeSec = opts.emaHalfLifeSec ?? 2.5
-    this.degradeMs = opts.degradeMs ?? 20.5
-    this.upgradeMs = opts.upgradeMs ?? 17.0
-    this.sustainSec = opts.sustainSec ?? 1.8
-    this.cooldownSec = opts.cooldownSec ?? 2.5
+    // Defaults tuned to be “sticky to high” for cinematic feel:
+    // - Slow EMA so micro-stutters don't trigger downgrades.
+    // - Medium is allowed briefly; low only under real sustained stress.
+    this.halfLifeSec = opts.emaHalfLifeSec ?? 3.2
+
+    this.degradeToMediumMs = opts.degradeToMediumMs ?? 21.5
+    this.degradeToLowMs = opts.degradeToLowMs ?? 24.0
+
+    this.upgradeToHighMs = opts.upgradeToHighMs ?? 18.2
+    this.upgradeToMediumMs = opts.upgradeToMediumMs ?? 20.0
+
+    this.degradeSustainSec = opts.degradeSustainSec ?? 2.4
+    this.upgradeSustainSec = opts.upgradeSustainSec ?? 2.8
+
+    this.cooldownSec = opts.cooldownSec ?? 3.0
   }
 
   update(dtSec: number) {
@@ -62,10 +84,13 @@ export class PerformanceManager {
       return { changed: false as const, tier: this.tier, emaMs: this.emaMs }
     }
 
-    if (this.emaMs > this.degradeMs) {
+    const degradeMs = this.tier === 'high' ? this.degradeToMediumMs : this.degradeToLowMs
+    const upgradeMs = this.tier === 'low' ? this.upgradeToMediumMs : this.upgradeToHighMs
+
+    if (this.emaMs > degradeMs) {
       this.overFor += dtSec
       this.underFor = 0
-    } else if (this.emaMs < this.upgradeMs) {
+    } else if (this.emaMs < upgradeMs) {
       this.underFor += dtSec
       this.overFor = 0
     } else {
@@ -75,9 +100,9 @@ export class PerformanceManager {
     }
 
     let next: QualityTier = this.tier
-    if (this.overFor >= this.sustainSec) {
+    if (this.overFor >= this.degradeSustainSec) {
       next = this.tier === 'high' ? 'medium' : 'low'
-    } else if (this.underFor >= this.sustainSec * 1.4) {
+    } else if (this.underFor >= this.upgradeSustainSec) {
       next = this.tier === 'low' ? 'medium' : 'high'
     }
 

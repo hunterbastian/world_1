@@ -17,6 +17,8 @@ import { AudioSystem } from '../audio/AudioSystem'
 import { WorldMap } from '../ui/WorldMap'
 import { PerformanceManager } from './PerformanceManager'
 import type { QualityTier } from './PerformanceManager'
+import { CloudDome } from '../world/CloudDome'
+import { Landmarks } from '../world/Landmarks'
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
@@ -40,8 +42,11 @@ export class Game {
   private campfires: Campfires | null = null
   private audio: AudioSystem | null = null
   private worldMap: WorldMap | null = null
+  private cloudDome: CloudDome | null = null
+  private landmarks: Landmarks | null = null
   private readonly perf = new PerformanceManager()
   private qualityTier: QualityTier = 'high'
+  private perfDebug = false
   private compass = {
     t: 0,
     angle: 0,
@@ -79,6 +84,7 @@ export class Game {
 
     this.seedScene()
     this.input = new Input(this.renderer.domElement)
+    window.addEventListener('keydown', this.onDebugKey)
     window.addEventListener('resize', this.onResize)
   }
 
@@ -92,6 +98,7 @@ export class Game {
     if (this.raf != null) cancelAnimationFrame(this.raf)
     this.raf = null
     this.input?.dispose()
+    window.removeEventListener('keydown', this.onDebugKey)
     window.removeEventListener('resize', this.onResize)
   }
 
@@ -104,12 +111,15 @@ export class Game {
       this.postfx?.setQuality(this.qualityTier)
       this.vegetation?.setQuality(this.qualityTier)
       this.water?.setQuality(this.qualityTier)
+      this.cloudDome?.setQuality(this.qualityTier)
+      if (this.perfDebug) console.info(`[perf] tier=${this.qualityTier} ema=${perf.emaMs.toFixed(1)}ms`)
     }
 
     this.sky?.update(dt, this.renderer)
     if (this.sky) {
       this.rim.sunDir.copy(this.sky.sunDirection)
       this.rim.intensity = THREE.MathUtils.clamp(0.15 + this.sky.duskAmount * 0.55, 0, 0.8)
+      if (this.cloudDome) this.cloudDome.update(dt, this.sky)
     }
 
     this.wind?.update(dt)
@@ -242,12 +252,22 @@ export class Game {
     this.postfx?.resize(w, h)
   }
 
+  private onDebugKey = (e: KeyboardEvent) => {
+    if (e.code !== 'F3') return
+    this.perfDebug = !this.perfDebug
+    console.info(`[perf] debug=${this.perfDebug ? 'on' : 'off'} tier=${this.qualityTier} ema=${this.perf.emaMs.toFixed(1)}ms`)
+  }
+
   private seedScene() {
     const hemi = new THREE.HemisphereLight(0xbdd9ff, 0x1d2230, 0.55)
     this.scene.add(hemi)
 
     this.sky = new SkySystem({ scene: this.scene })
     this.wind = new WindSystem()
+
+    this.cloudDome = new CloudDome()
+    this.cloudDome.setQuality(this.qualityTier)
+    this.scene.add(this.cloudDome.object3d)
 
     this.terrain = new Terrain({
       size: 700,
@@ -256,6 +276,9 @@ export class Game {
       seaLevel: -2,
     })
     this.scene.add(this.terrain.object3d)
+
+    this.landmarks = new Landmarks(this.terrain)
+    this.scene.add(this.landmarks.object3d)
 
     this.water = new Water(this.terrain, {
       seed: 'world-seed-001',

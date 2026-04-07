@@ -269,9 +269,11 @@ export class PostFX {
     this.grainEffect.setAmount(THREE.MathUtils.lerp(curGrain, targetGrain, k))
 
     this.godRays.setSunUv(sunUv)
-    this.godRays.setIntensity(godRayIntensity)
+    const godMul = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.85 : 0.7
+    this.godRays.setIntensity(godRayIntensity * godMul)
     this.fogVeil.setTime(this.time)
-    this.fogVeil.setStrength(fogStrength)
+    const fogMul = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.9 : 0.78
+    this.fogVeil.setStrength(fogStrength * fogMul)
   }
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {

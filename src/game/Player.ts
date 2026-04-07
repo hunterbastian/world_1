@@ -35,6 +35,8 @@ export class Player {
   private readonly accel = 10.0
   private readonly decel = 14.0
   private readonly turnRate = 7.5
+  // Steep-slope gating: tuned to feel Skyrim-ish (passes are doable, sheer faces are blocked).
+  private readonly maxClimbSlope = 0.27
 
   constructor(opts: PlayerOptions) {
     this.terrain = opts.terrain
@@ -115,8 +117,18 @@ export class Player {
       }
     }
 
-    // Position integrate
-    this.position.addScaledVector(this.velocity, dt)
+    // Position integrate + steep-slope gating (prevents brute-climbing).
+    const nextX = this.position.x + this.velocity.x * dt
+    const nextZ = this.position.z + this.velocity.z * dt
+    const slope = this.terrain.slopeAtXZ(nextX, nextZ)
+    if (slope <= this.maxClimbSlope) {
+      this.position.x = nextX
+      this.position.z = nextZ
+    } else {
+      // Allow sliding sideways a bit (feels less like an invisible wall).
+      this.velocity.x *= 0.25
+      this.velocity.z *= 0.25
+    }
 
     // Stick to terrain height (simple grounding for now)
     const groundY = this.terrain.heightAtXZ(this.position.x, this.position.z)

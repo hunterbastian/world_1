@@ -18,6 +18,8 @@ export class Terrain {
   public readonly size: number
   public readonly segments: number
   public readonly seaLevel: number
+  public readonly megaMountainCenterXZ = new THREE.Vector2(0, 0)
+  public megaMountainRadius = 0
 
   private readonly heightField: Float32Array
   private readonly biomeField: Uint8Array
@@ -230,6 +232,26 @@ export class Terrain {
     const uplift = 10
     const snowLine = 30
 
+    // Deterministic mega-mountain landmark (distinct, traversable).
+    let s = 2166136261 >>> 0
+    for (let i = 0; i < seed.length; i++) {
+      s ^= seed.charCodeAt(i)
+      s = Math.imul(s, 16777619)
+    }
+    const rand01 = () => {
+      s ^= s << 13
+      s ^= s >>> 17
+      s ^= s << 5
+      return (s >>> 0) / 0xffffffff
+    }
+    const mmR = this.size * 0.18
+    const mmX = (rand01() * 2 - 1) * (half * 0.55)
+    const mmZ = (rand01() * 2 - 1) * (half * 0.55)
+    this.megaMountainCenterXZ.set(mmX, mmZ)
+    this.megaMountainRadius = mmR
+    const mmStrength = 62
+    const mmDetail = makeNoise2D(`${seed}:mega`)
+
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i)
       const z = pos.getZ(i)
@@ -250,6 +272,18 @@ export class Terrain {
       const region = THREE.MathUtils.smoothstep(temp, -0.2, 0.4)
 
       let h = rolling + uplift * region + mountains * mountainMask
+
+      // Mega-mountain uplift: broad recognizable massif + slight ridge detail.
+      const dx = x - mmX
+      const dz = z - mmZ
+      const d = Math.hypot(dx, dz)
+      if (d < mmR) {
+        const t = 1 - d / mmR
+        const falloff = t * t * (3 - 2 * t)
+        const n = fbm2(mmDetail, (x + half) * (1 / 160), (z + half) * (1 / 160), 2, 2.15, 0.55)
+        const detail = (n * 0.5 + 0.5) * 0.55 + 0.45
+        h += mmStrength * falloff * detail
+      }
 
       // Keep coasts readable by gently easing up very low elevations (until oceans are in).
       h = Math.max(h, this.seaLevel - 8)
@@ -282,10 +316,58 @@ export class Terrain {
       color.setXYZ(i, c.r, c.g, c.b)
     }
 
+    // Carve 1–2 “Skyrim-style” passes up the mega-mountain so traversal has intended routes.
+    this.carveMountainPasses(seed)
+
     this.geometry.setAttribute('color', color)
     this.geometry.computeVertexNormals()
     pos.needsUpdate = true
     color.needsUpdate = true
+  }
+
+  private carveMountainPasses(seed: string) {
+    const c = this.megaMountainCenterXZ
+    const r = this.megaMountainRadius || this.size * 0.18
+
+    // Deterministic but stable per seed.
+    let s = 1469598103 >>> 0
+    for (let i = 0; i < seed.length; i++) {
+      s ^= seed.charCodeAt(i)
+      s = Math.imul(s, 16777619)
+    }
+    const rand01 = () => {
+      s ^= s << 13
+      s ^= s >>> 17
+      s ^= s << 5
+      return (s >>> 0) / 0xffffffff
+    }
+
+    const makeSpiral = (turns: number, a0: number) => {
+      const pts: THREE.Vector3[] = []
+      const steps = 160
+      const startR = r * 1.05
+      const endR = r * 0.35
+      for (let i = 0; i < steps; i++) {
+        const t = i / (steps - 1)
+        const ang = a0 + t * (Math.PI * 2) * turns
+        const rr = THREE.MathUtils.lerp(startR, endR, t)
+        const x = c.x + Math.cos(ang) * rr
+        const z = c.y + Math.sin(ang) * rr
+        const y = this.heightAtXZ(x, z)
+        pts.push(new THREE.Vector3(x, y, z))
+      }
+      return pts
+    }
+
+    const passA = makeSpiral(1.25, rand01() * Math.PI * 2)
+    // Wider/deeper main switchback so it reads and remains usable under slope gating.
+    this.carveRiverChannels(passA, 10.5, 3.1)
+
+    // Optional second pass from a different approach angle.
+    if (rand01() > 0.35) {
+      const passB = makeSpiral(0.9, rand01() * Math.PI * 2 + 1.7)
+      this.carveRiverChannels(passB, 8.5, 2.4)
+    }
   }
 }
 
