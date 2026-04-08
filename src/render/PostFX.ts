@@ -5,25 +5,43 @@ import { EffectPass } from 'postprocessing'
 import { Effect } from 'postprocessing'
 import type { QualityTier } from '../game/PerformanceManager'
 
+class ToonRampEffect extends Effect {
+  constructor() {
+    super('ToonRampEffect', /* glsl */ `
+      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+        vec3 col = inputColor.rgb;
+        float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+
+        float toonBand = smoothstep(0.20, 0.52, lum);
+        vec3 warmShadow = col * vec3(0.88, 0.82, 0.92);
+        col = mix(warmShadow, col * 1.05, toonBand);
+
+        float spec = smoothstep(0.80, 0.94, lum);
+        col += spec * vec3(0.10, 0.08, 0.06);
+
+        outputColor = vec4(col, 1.0);
+      }
+    `)
+  }
+}
+
 class BiomePaletteEffect extends Effect {
   constructor() {
     super('BiomePaletteEffect', /* glsl */ `
       uniform sampler2D tBiome;
 
       vec3 applyGrade(vec3 col, float biome) {
-        // 0 plains, 1 autumn, 2 snow
-        vec3 plainsTint = vec3(0.98, 1.08, 0.90);
-        vec3 forestTint = vec3(0.88, 1.04, 0.86);
+        vec3 plainsTint = vec3(1.02, 1.10, 0.88);
+        vec3 forestTint = vec3(0.90, 1.08, 0.84);
         vec3 snowTint   = vec3(0.92, 0.98, 1.08);
 
         vec3 tint = plainsTint;
         if (biome > 1.5) tint = snowTint;
         else if (biome > 0.5) tint = forestTint;
 
-        // Saturation + contrast push (avoid grey wash)
         float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
-        col = mix(vec3(l), col, 1.14);
-        col = mix(vec3(0.0), col, 1.05);
+        col = mix(vec3(l), col, 1.22);
+        col = mix(vec3(0.0), col, 1.06);
 
         return clamp(col * tint, 0.0, 1.0);
       }
@@ -65,7 +83,7 @@ class FilmGrainEffect extends Effect {
     `, {
       uniforms: new Map([
         ['uTime', new THREE.Uniform(0)],
-        ['uAmount', new THREE.Uniform(0.02)],
+        ['uAmount', new THREE.Uniform(0.012)],
       ]),
     })
   }
@@ -93,16 +111,15 @@ class GodRaysEffect extends Effect {
         float dist = length(dir);
         dir /= max(1e-5, dist);
 
-        // Radial sample blur (cheap, subtle).
-        float decay = 0.92;
+        float decay = 0.93;
         float exposure = uIntensity;
-        float weight = 0.025;
+        float weight = 0.028;
         vec3 rays = vec3(0.0);
 
         vec2 coord = uv;
         for (int i = 0; i < 20; i++) {
           if (float(i) >= uSamples) break;
-          coord += dir * 0.012;
+          coord += dir * 0.014;
           vec3 s = texture2D(inputBuffer, coord).rgb;
           float l = dot(s, vec3(0.2126, 0.7152, 0.0722));
           rays += s * l * weight;
@@ -110,6 +127,22 @@ class GodRaysEffect extends Effect {
         }
 
         col += rays * exposure * smoothstep(0.9, 0.0, dist);
+
+        // Sun halo: warm bloom around the sun position
+        float haloFalloff = smoothstep(0.45, 0.0, dist);
+        float haloBright = haloFalloff * haloFalloff;
+        vec3 haloColor = vec3(1.0, 0.92, 0.78);
+        col += haloColor * haloBright * uIntensity * 0.35;
+
+        // Secondary soft glow (wider, subtler)
+        float outerGlow = smoothstep(0.7, 0.0, dist) * 0.12 * uIntensity;
+        col += vec3(0.95, 0.88, 0.75) * outerGlow;
+
+        // Distance haze: thicker toward horizon, warm tint
+        float horizonBand = smoothstep(0.35, 0.55, uv.y) * (1.0 - smoothstep(0.55, 0.62, uv.y));
+        float haze = horizonBand * 0.08 * uIntensity;
+        col += vec3(0.85, 0.82, 0.78) * haze;
+
         outputColor = vec4(col, 1.0);
       }
     `, {
@@ -138,9 +171,12 @@ class FogVeilEffect extends Effect {
   constructor() {
     super('FogVeilEffect', /* glsl */ `
       uniform sampler2D tBiome;
+      uniform sampler2D tDepth;
       uniform float uTime;
       uniform float uStrength;
       uniform float uDetail;
+      uniform float uCamHeight;
+      uniform float uSeaLevel;
 
       float hash(vec2 p) {
         p = fract(p * vec2(123.34, 345.45));
@@ -159,32 +195,63 @@ class FogVeilEffect extends Effect {
         return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
       }
 
+      float fbmFog(vec2 p) {
+        float v = 0.0;
+        float a = 0.55;
+        v += a * noise(p); p *= 2.03; a *= 0.5;
+        v += a * noise(p); p *= 2.01; a *= 0.5;
+        v += a * noise(p) * uDetail;
+        return v;
+      }
+
       void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
         vec3 col = inputColor.rgb;
 
-        // Valley-ish fog: concentrate nearer the horizon band (avoid washing the ground).
-        float horizon = smoothstep(0.18, 0.55, uv.y) * (1.0 - smoothstep(0.72, 0.98, uv.y));
-        float valley = horizon;
-        vec2 drift = vec2(uTime * 0.01, -uTime * 0.007);
-        float n = noise(uv * 6.0 + drift) * 0.6 + noise(uv * 14.0 - drift * 1.7) * 0.4 * uDetail;
-        n = n * 2.0 - 1.0;
+        // Height-based fog: thicker in valleys (low screen Y), thinner at peaks
+        float horizon = smoothstep(0.10, 0.50, uv.y) * (1.0 - smoothstep(0.78, 0.98, uv.y));
 
+        // Valley pooling: fog concentrates in the lower third of the screen
+        float valleyPool = smoothstep(0.50, 0.20, uv.y) * 0.6;
+        float heightMask = horizon + valleyPool;
+
+        // Animated drift
+        vec2 drift = vec2(uTime * 0.008, -uTime * 0.005);
+        vec2 drift2 = vec2(-uTime * 0.006, uTime * 0.004);
+
+        // Layered noise for wispy volume
+        float n1 = fbmFog(uv * 5.0 + drift);
+        float n2 = fbmFog(uv * 10.0 + drift2);
+        float n3 = noise(uv * 20.0 + drift * 2.5) * uDetail;
+        float fogShape = n1 * 0.55 + n2 * 0.30 + n3 * 0.15;
+
+        // Biome influence: forests get thicker low fog
         float biome = texture2D(tBiome, uv).r * 255.0;
         float forestBoost = (biome > 0.5 && biome < 1.5) ? 1.0 : 0.0;
+        float mountainClear = (biome > 1.5) ? 0.6 : 1.0;
 
-        float fogAmt = uStrength * valley * (0.75 + 0.25 * n) * (1.0 + 0.35 * forestBoost);
-        fogAmt = clamp(fogAmt, 0.0, 0.85);
+        // Camera height influence: fog thins when camera is high up (mountain vistas)
+        float camFade = smoothstep(40.0, 15.0, uCamHeight);
 
-        vec3 fogCol = vec3(0.70, 0.78, 0.86);
+        float fogAmt = uStrength * heightMask * (0.25 + 0.15 * fogShape);
+        fogAmt *= (1.0 + 0.2 * forestBoost) * mountainClear * camFade;
+        fogAmt = clamp(fogAmt, 0.0, 0.30);
+
+        vec3 fogValley = vec3(0.58, 0.65, 0.80);
+        vec3 fogHorizon = vec3(0.82, 0.78, 0.72);
+        vec3 fogCol = mix(fogValley, fogHorizon, smoothstep(0.25, 0.55, uv.y));
+
         col = mix(col, fogCol, fogAmt);
         outputColor = vec4(col, 1.0);
       }
     `, {
       uniforms: new Map<string, THREE.Uniform>([
         ['tBiome', new THREE.Uniform(null)],
+        ['tDepth', new THREE.Uniform(null)],
         ['uTime', new THREE.Uniform(0)],
-        ['uStrength', new THREE.Uniform(0.12)],
+        ['uStrength', new THREE.Uniform(0.08)],
         ['uDetail', new THREE.Uniform(1.0)],
+        ['uCamHeight', new THREE.Uniform(10)],
+        ['uSeaLevel', new THREE.Uniform(-2)],
       ]),
     })
   }
@@ -204,6 +271,10 @@ class FogVeilEffect extends Effect {
   setDetail(v: number) {
     ;(this.uniforms.get('uDetail') as THREE.Uniform).value = THREE.MathUtils.clamp(v, 0.0, 1.0)
   }
+
+  setCamHeight(h: number) {
+    ;(this.uniforms.get('uCamHeight') as THREE.Uniform).value = h
+  }
 }
 
 export class PostFX {
@@ -211,6 +282,7 @@ export class PostFX {
 
   private readonly biomeTarget: THREE.WebGLRenderTarget
   private readonly biomeOverrideMaterial: THREE.MeshBasicMaterial
+  private readonly toonRamp: ToonRampEffect
   private readonly biomeEffect: BiomePaletteEffect
   private readonly fogVeil: FogVeilEffect
   private readonly grainEffect: FilmGrainEffect
@@ -230,6 +302,7 @@ export class PostFX {
     this.biomeTarget.texture.name = 'BiomeIdTarget'
     this.biomeOverrideMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 })
 
+    this.toonRamp = new ToonRampEffect()
     this.biomeEffect = new BiomePaletteEffect()
     this.biomeEffect.setBiomeTexture(this.biomeTarget.texture)
 
@@ -238,7 +311,7 @@ export class PostFX {
     this.fogVeil.setBiomeTexture(this.biomeTarget.texture)
     this.grainEffect = new FilmGrainEffect()
 
-    this.composer.addPass(new EffectPass(camera, this.biomeEffect, this.godRays, this.fogVeil, this.grainEffect))
+    this.composer.addPass(new EffectPass(camera, this.toonRamp, this.biomeEffect, this.godRays, this.fogVeil, this.grainEffect))
   }
 
   setQuality(tier: QualityTier) {
@@ -250,11 +323,10 @@ export class PostFX {
     this.biomeTarget.setSize(w, h)
   }
 
-  update(dt: number, sunUv: THREE.Vector2, godRayIntensity: number, fogStrength: number) {
+  update(dt: number, sunUv: THREE.Vector2, godRayIntensity: number, fogStrength: number, camHeight = 10) {
     this.time += dt
     this.grainEffect.setTime(this.time)
 
-    // Apply quality knobs gradually (tier changes are already hysteresis-gated).
     const k = 1 - Math.exp(-dt * 2.2)
     const targetSamples = this.quality === 'high' ? 20 : this.quality === 'medium' ? 14 : 10
     const curSamples = (this.godRays.uniforms.get('uSamples') as THREE.Uniform).value as number
@@ -264,7 +336,7 @@ export class PostFX {
     const curFogDetail = (this.fogVeil.uniforms.get('uDetail') as THREE.Uniform).value as number
     this.fogVeil.setDetail(THREE.MathUtils.lerp(curFogDetail, targetFogDetail, k))
 
-    const targetGrain = this.quality === 'high' ? 0.02 : this.quality === 'medium' ? 0.018 : 0.016
+    const targetGrain = this.quality === 'high' ? 0.012 : this.quality === 'medium' ? 0.010 : 0.008
     const curGrain = (this.grainEffect.uniforms.get('uAmount') as THREE.Uniform).value as number
     this.grainEffect.setAmount(THREE.MathUtils.lerp(curGrain, targetGrain, k))
 
@@ -274,6 +346,7 @@ export class PostFX {
     this.fogVeil.setTime(this.time)
     const fogMul = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.9 : 0.78
     this.fogVeil.setStrength(fogStrength * fogMul)
+    this.fogVeil.setCamHeight(camHeight)
   }
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {

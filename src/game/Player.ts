@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { InputState } from './Input'
 import type { Terrain } from '../world/Terrain'
 import { buildKnightModel, animateKnight, type KnightLimbs } from './KnightModel'
+import { addOutlineShell } from '../render/OutlineShell'
 
 export type PlayerStepEvent = {
   intensity: number
@@ -28,13 +29,18 @@ export class Player {
   private capeMats: THREE.MeshStandardMaterial[] = []
   private capeTime = 0
   private capeWind = new THREE.Vector2(1, 0)
+  private prevVelX = 0
+  private prevVelZ = 0
+  private capeSwingX = 0
+  private capeSwingZ = 0
   private readonly knightLimbs: KnightLimbs
 
   private readonly walkSpeed = 6.0
   private readonly runSpeed = 9.5
-  private readonly accel = 10.0
-  private readonly decel = 14.0
-  private readonly turnRate = 7.5
+  private readonly accel = 8.5
+  private readonly decel = 5.5
+  private readonly turnRate = 5.0
+  private animSpeed = 0
   private readonly maxStepUp = 0.85
   private readonly maxClimbSlope = 0.78
 
@@ -44,9 +50,11 @@ export class Player {
     this.object3d.name = 'Player'
 
     const { root, limbs } = buildKnightModel()
+    root.rotation.y = Math.PI
     this.model = root
     this.knightLimbs = limbs
     this.object3d.add(this.model)
+    addOutlineShell(this.model, { thickness: 0.02, color: 0x08080e, alpha: 0.7 })
     this.attachCapeFlutter(this.model)
 
     this.position.copy(opts.start)
@@ -60,13 +68,24 @@ export class Player {
 
   update(dt: number, input: InputState, cameraYaw: number) {
     this.capeTime += dt
+
+    const decelX = this.prevVelX - this.velocity.x
+    const decelZ = this.prevVelZ - this.velocity.z
+    this.capeSwingX += decelX * 0.12
+    this.capeSwingZ += decelZ * 0.12
+    this.capeSwingX *= Math.exp(-3.5 * dt)
+    this.capeSwingZ *= Math.exp(-3.5 * dt)
+    this.prevVelX = this.velocity.x
+    this.prevVelZ = this.velocity.z
+
     for (const m of this.capeMats) {
       const u = (m as any).userData?.__capeUniforms as
-        | { uTime: { value: number }; uWind: { value: THREE.Vector2 } }
+        | { uTime: { value: number }; uWind: { value: THREE.Vector2 }; uSwing: { value: THREE.Vector2 } }
         | undefined
       if (u) {
         u.uTime.value = this.capeTime
         u.uWind.value.copy(this.capeWind)
+        u.uSwing.value.set(this.capeSwingX, this.capeSwingZ)
       }
     }
 
@@ -144,7 +163,13 @@ export class Player {
     this.object3d.rotation.y = yaw
 
     const speed = Math.hypot(this.velocity.x, this.velocity.z)
-    const strideHz = THREE.MathUtils.clamp(speed / 2.6, 0, 4.0)
+
+    const animTarget = speed
+    const animRate = speed > this.animSpeed ? 8.0 : 3.2
+    this.animSpeed += (animTarget - this.animSpeed) * (1 - Math.exp(-animRate * dt))
+    if (this.animSpeed < 0.05) this.animSpeed = 0
+
+    const strideHz = THREE.MathUtils.clamp(this.animSpeed / 2.6, 0, 4.0)
     const prevPhase = this.stepPhase
     this.stepPhase = (this.stepPhase + dt * strideHz) % 1
 
@@ -153,7 +178,7 @@ export class Player {
       for (const cb of this.stepListeners) cb({ intensity })
     }
 
-    animateKnight(this.knightLimbs, dt, speed, this.stepPhase)
+    animateKnight(this.knightLimbs, dt, this.animSpeed, this.stepPhase)
   }
 
   setWind(dirXZ: THREE.Vector2) {
@@ -182,17 +207,20 @@ export class Player {
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uCapeTime = { value: 0 }
       shader.uniforms.uCapeWind = { value: new THREE.Vector2(1, 0) }
+      shader.uniforms.uCapeSwing = { value: new THREE.Vector2(0, 0) }
 
       ;(mat as any).userData = (mat as any).userData ?? {}
       ;(mat as any).userData.__capeUniforms = {
         uTime: shader.uniforms.uCapeTime,
         uWind: shader.uniforms.uCapeWind,
+        uSwing: shader.uniforms.uCapeSwing,
       }
 
       shader.vertexShader =
         /* glsl */ `
           uniform float uCapeTime;
           uniform vec2 uCapeWind;
+          uniform vec2 uCapeSwing;
         ` + shader.vertexShader
 
       shader.vertexShader = shader.vertexShader.replace(
@@ -210,6 +238,11 @@ export class Player {
           transformed.x += wind.x * flutter * (0.35 + 0.65 * w);
           transformed.z += wind.y * flutter * (0.35 + 0.65 * w);
           transformed.y += abs(flutter) * 0.03 * w;
+
+          // Momentum swing: cape swings in direction of deceleration
+          transformed.x += uCapeSwing.x * w * 2.8;
+          transformed.z += uCapeSwing.y * w * 2.8;
+          transformed.y -= length(uCapeSwing) * w * 0.4;
         `
       )
     }

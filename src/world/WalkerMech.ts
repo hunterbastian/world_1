@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { addOutlineShell } from '../render/OutlineShell'
 
 export type WalkerTier = 'scout' | 'assault'
 
@@ -462,6 +463,9 @@ export class WalkerMech {
     }
 
     this.limbs = { hull, head, weaponL, weaponR, legs, restHullY: 0 }
+
+    const outlineThick = tier === 'scout' ? 0.04 : 0.06
+    addOutlineShell(this.object3d, { thickness: outlineThick, color: 0x06060c, alpha: 0.65 })
   }
 
   update(_dt: number) {}

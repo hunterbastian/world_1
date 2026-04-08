@@ -42,6 +42,84 @@ export class Terrain {
       metalness: 0,
     })
 
+    this.material.onBeforeCompile = (shader) => {
+      shader.vertexShader = /* glsl */ `
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+      ` + shader.vertexShader
+
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <worldpos_vertex>',
+        /* glsl */ `
+          #include <worldpos_vertex>
+          vWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+          vWorldNormal = normalize(mat3(modelMatrix) * objectNormal);
+        `
+      )
+
+      shader.fragmentShader = /* glsl */ `
+        varying vec3 vWorldPos;
+        varying vec3 vWorldNormal;
+
+        float terrainHash(vec2 p) {
+          p = fract(p * vec2(123.34, 345.45));
+          p += dot(p, p + 34.345);
+          return fract(p.x * p.y);
+        }
+        float terrainNoise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          float a = terrainHash(i);
+          float b = terrainHash(i + vec2(1.0, 0.0));
+          float c = terrainHash(i + vec2(0.0, 1.0));
+          float d = terrainHash(i + vec2(1.0, 1.0));
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+        }
+        float terrainFbm(vec2 p) {
+          float v = 0.0;
+          float a = 0.5;
+          for (int i = 0; i < 3; i++) {
+            v += a * terrainNoise(p);
+            p *= 2.03;
+            a *= 0.47;
+          }
+          return v;
+        }
+      ` + shader.fragmentShader
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <dithering_fragment>',
+        /* glsl */ `
+          // Slope-based rock blending
+          vec3 wN = normalize(vWorldNormal);
+          float slopeAmt = 1.0 - wN.y;
+
+          // Triplanar rock noise
+          vec3 blendW = abs(wN);
+          blendW = max(blendW - 0.2, 0.001);
+          blendW = pow(blendW, vec3(4.0));
+          blendW /= (blendW.x + blendW.y + blendW.z);
+          float rockN = terrainFbm(vWorldPos.yz * 0.12) * blendW.x
+                      + terrainFbm(vWorldPos.xz * 0.12) * blendW.y
+                      + terrainFbm(vWorldPos.xy * 0.12) * blendW.z;
+
+          vec3 rockCol = mix(vec3(0.42, 0.40, 0.44), vec3(0.34, 0.33, 0.36), rockN);
+          float rockBlend = smoothstep(0.32, 0.58, slopeAmt);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, rockCol, rockBlend);
+
+          float detail = terrainFbm(vWorldPos.xz * 0.3);
+          gl_FragColor.rgb += (detail - 0.5) * 0.02;
+
+          float shoreFade = smoothstep(-2.0, 1.0, vWorldPos.y);
+          gl_FragColor.rgb *= 0.90 + 0.10 * shoreFade;
+
+          #include <dithering_fragment>
+        `
+      )
+    }
+    this.material.needsUpdate = true
+
     this.mesh = new THREE.Mesh(this.geometry, this.material)
     this.mesh.receiveShadow = true
     this.object3d.add(this.mesh)

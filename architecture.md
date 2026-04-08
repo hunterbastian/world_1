@@ -16,14 +16,17 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `Game.ts` | `Game` | Main orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`. Runs the game loop in `tick()`. Handles rest mechanic, compass, spawn intro, Walker idle updates, pause state, debug keys (F3). |
+| `Game.ts` | `Game` | Thin orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`, builds `GameContext`, delegates gameplay to active `GameState`. Manages environment updates, performance tiers, pause toggle, post-FX. |
 | `Game.ts` | `.start()` | Begins the render loop |
 | `Game.ts` | `.stop()` | Cancels render loop, disposes input |
+| `Game.ts` | `.changeState(id)` | Exits current state, enters next state |
 | `Game.ts` | `.seedScene()` | Instantiates terrain, water, vegetation, sky, clouds, wind, player, camera rig, POIs, campfires, landmarks, dormant Walkers, journal, HUD, world map, pause menu, audio, post-fx |
+| `GameState.ts` | `GameState`, `GameStateId`, `GameContext` | State machine interface. States: `exploring`, `piloting`, `menu`. `GameContext` provides shared references (player, camera, terrain, HUD, etc.) that states can access. |
+| `ExploringState.ts` | `ExploringState` | On-foot exploration state. Handles player movement, camera orbit, spawn intro cinematic, compass to nearest POI, journal toggle, world map updates, rest mechanic at camps. |
 | `Player.ts` | `Player` | Player controller. WASD movement, sprint/stamina, slope gating, step events. Imports knight model + animation from KnightModel.ts, drives cape flutter shader. |
 | `Player.ts` | `.update(dt, input, cameraYaw)` | Per-frame movement: accel/decel, terrain clamping, slope rejection, facing, step phase, calls animateKnight |
 | `Player.ts` | `.setWind(dirXZ)` | Updates cape flutter wind direction |
-| `KnightModel.ts` | `buildKnightModel()` | Procedural Dark Souls knight from Three.js primitives. Hierarchical limb groups (body, head, armL/R, legL/R, cape, tabard) with joint pivots for animation. |
+| `KnightModel.ts` | `buildKnightModel()` | BotW-style wanderer: matte tunic/leather/cloth palette, puffy sleeves, leather bracers, exposed skin, styled hair, cowl, flowing cape + scarf. Slightly larger head (1.08x) for stylized read. Hierarchical limb groups for animation. |
 | `KnightModel.ts` | `animateKnight(limbs, dt, speed, phase)` | Speed-blended procedural animation: idle sway, walk stride, run with weight. Legs/arms counter-swing, body bobs, head counters. |
 | `Input.ts` | `Input`, `InputState` | Keyboard + mouse input. WASD, Shift sprint, E interact, Tab journal, Escape pause, pointer lock orbit. `consume()` returns and resets deltas. |
 | `CameraRig.ts` | `CameraRig` | Third-person orbit camera with critically damped spring, footstep shake, cinematic zoom. |
@@ -45,6 +48,7 @@ One-liner per file and exported function/class.
 | `Biomes.ts` | `BiomeId`, `Biome`, `biomeIndex`, `biomeFromIndex` | Biome enum (`grassy_plains`, `autumn_forest`, `snowy_mountains`), color/density params, index helpers |
 | `Water.ts` | `Water` | Ocean plane + river ribbons. Custom shader materials with wind-driven animation. Downhill path generation for rivers, carves terrain channels. |
 | `Vegetation.ts` | `Vegetation` | Instanced deciduous + pine trees scattered by biome density. Wind sway shader. Quality-tier instance count scaling. |
+| `GrassField.ts` | `GrassField` | Dense instanced grass blades (22k). Wind sway + player push-away. BotW-saturated green-to-yellow tips. Quality-tier scaling. |
 | `SkySystem.ts` | `SkySystem` | Day/night cycle (~10min). Three.js Sky object, directional sun light, fog color/density, dusk detection. |
 | `CloudDome.ts` | `CloudDome` | Backface sphere with FBM cloud shader. Day/dusk/night coloring, quality-adaptive detail. |
 | `WindSystem.ts` | `WindSystem` | Slowly meandering wind direction + speed. Drives vegetation sway, water ripple, cape flutter, campfire embers. |
@@ -59,9 +63,9 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `PostFX.ts` | `PostFX` | EffectComposer pipeline: biome palette grading, god rays, fog veil, film grain. Biome ID render pass. Quality-adaptive sample counts. |
+| `PostFX.ts` | `PostFX` | EffectComposer pipeline: BotW toon ramp (2-band + warm shadow), saturated biome palette, god rays, warm-to-cool fog veil, subtle film grain. Biome ID render pass. Quality-adaptive. |
 | `PostFX.ts` | `PostFX.tagBiome(mesh, idx)` | Static helper to tag meshes for biome grading |
-| `RimLight.ts` | `applyRimLightToScene`, `applyRimLightToStandardMaterial` | Patches MeshStandardMaterial with fresnel rim + dusk-boosted back-light |
+| `RimLight.ts` | `applyRimLightToScene`, `applyRimLightToStandardMaterial` | Patches MeshStandardMaterial with wide warm golden rim (always-on, dusk-boosted). BotW-style character pop. |
 
 ## audio/
 

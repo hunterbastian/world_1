@@ -23,14 +23,13 @@ export function applyRimLightToStandardMaterial(mat: THREE.MeshStandardMaterial,
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <dithering_fragment>',
       /* glsl */ `
-        // Fresnel rim + sun-angle modulation (stronger when sun is low).
         vec3 Nw = normalize(normal);
         vec3 Vw = normalize(-vViewPosition);
-        float fres = pow(1.0 - clamp(dot(Vw, Nw), 0.0, 1.0), 2.2);
+        float fres = pow(1.0 - clamp(dot(Vw, Nw), 0.0, 1.0), 1.8);
         float sunAmt = clamp(dot(normalize(uRimSunDir), vec3(0.0, 1.0, 0.0)), 0.0, 1.0);
-        float duskBoost = 1.0 - smoothstep(0.25, 0.95, sunAmt);
-        float rim = fres * (0.35 + 0.65 * duskBoost) * uRimIntensity;
-        gl_FragColor.rgb += rim * vec3(0.9, 0.85, 1.0);
+        float duskBoost = 1.0 - smoothstep(0.35, 0.95, sunAmt);
+        float rim = fres * (0.55 + 0.35 * duskBoost) * uRimIntensity;
+        gl_FragColor.rgb += rim * vec3(1.0, 0.92, 0.82);
         #include <dithering_fragment>
       `
     )

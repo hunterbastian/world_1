@@ -29,7 +29,7 @@ export class SkySystem {
     this.sunLight.position.set(100, 200, 50)
     this.scene.add(this.sunLight)
 
-    this.fog = new THREE.FogExp2(0x9fb7c8, 0.0007)
+    this.fog = new THREE.FogExp2(0xb8d0e0, 0.00022)
     this.scene.fog = this.fog
 
     const u = this.sky.material.uniforms
@@ -76,7 +76,7 @@ export class SkySystem {
     this.fog.color.copy(fogCol)
 
     // Keep base fog lighter to preserve biome color; valley fog veil handles extra depth.
-    this.fog.density = THREE.MathUtils.lerp(0.00075, 0.00035, dayAmt)
+    this.fog.density = THREE.MathUtils.lerp(0.00040, 0.00012, dayAmt)
   }
 
   private computeSunDir(t: number) {
