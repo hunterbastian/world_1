@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { WalkerMech, type WalkerTier } from '../world/WalkerMech'
+import { WalkerMech, animateWalker, type WalkerTier, type WalkerLimbs } from '../world/WalkerMech'
 import { buildKnightModel, animateKnight, type KnightLimbs } from '../game/KnightModel'
 
 function disposeObject3D(root: THREE.Object3D) {
@@ -163,6 +163,7 @@ scene.add(pivot)
 type AssetId = WalkerTier | 'knight'
 
 let current: WalkerMech | null = null
+let walkerLimbs: WalkerLimbs | null = null
 let knightLimbs: KnightLimbs | null = null
 let knightRoot: THREE.Group | null = null
 let lastFocus = new THREE.Vector3(0, 2.4, 0)
@@ -187,6 +188,7 @@ function clearAsset() {
     pivot.remove(current.object3d)
     disposeObject3D(current.object3d)
     current = null
+    walkerLimbs = null
   }
   if (knightRoot) {
     pivot.remove(knightRoot)
@@ -221,6 +223,7 @@ function setAsset(id: AssetId) {
     frameCamera(center)
 
     current = mech
+    walkerLimbs = mech.limbs
   }
 }
 
@@ -342,6 +345,7 @@ window.addEventListener('keyup', (e) => {
 })
 
 let knightDemoPhase = 0
+let walkerDemoPhase = 0
 
 function tick() {
   const dt = Math.min(clock.getDelta(), 1 / 20)
@@ -355,6 +359,16 @@ function tick() {
     else if (cycle < 8) demoSpeed = 5.0
     else demoSpeed = 9.0
     animateKnight(knightLimbs, dt, demoSpeed, knightDemoPhase)
+  }
+
+  if (walkerLimbs) {
+    walkerDemoPhase = (walkerDemoPhase + dt * 1.5) % 1
+    const cycle = clock.elapsedTime % 12
+    let demoSpeed: number
+    if (cycle < 4) demoSpeed = 0
+    else if (cycle < 8) demoSpeed = 3.0
+    else demoSpeed = 6.0
+    animateWalker(walkerLimbs, dt, demoSpeed, walkerDemoPhase)
   }
 
   applyKeyboardRoam(dt)

@@ -1,11 +1,19 @@
 import * as THREE from 'three'
 
-const armor = () => new THREE.MeshStandardMaterial({ color: 0x3a3a42, roughness: 0.84, metalness: 0.28 })
-const armorDark = () => new THREE.MeshStandardMaterial({ color: 0x2c2c34, roughness: 0.88, metalness: 0.22 })
-const chainmail = () => new THREE.MeshStandardMaterial({ color: 0x4a4a54, roughness: 0.75, metalness: 0.40 })
-const leather = () => new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.95, metalness: 0.05 })
-const cloth = () => new THREE.MeshStandardMaterial({ color: 0x1e1e28, roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide })
-const visorMat = () => new THREE.MeshStandardMaterial({ color: 0x0a0a0e, emissive: 0x1a2a4a, emissiveIntensity: 0.25, roughness: 0.5, metalness: 0.0 })
+const M = {
+  hull: () => new THREE.MeshStandardMaterial({ color: 0x3c3e48, roughness: 0.80, metalness: 0.35 }),
+  hullWorn: () => new THREE.MeshStandardMaterial({ color: 0x34363e, roughness: 0.92, metalness: 0.20 }),
+  panel: () => new THREE.MeshStandardMaterial({ color: 0x484a55, roughness: 0.78, metalness: 0.38 }),
+  panelDark: () => new THREE.MeshStandardMaterial({ color: 0x2a2c34, roughness: 0.85, metalness: 0.30 }),
+  frame: () => new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.88, metalness: 0.42 }),
+  undersuit: () => new THREE.MeshStandardMaterial({ color: 0x1e2028, roughness: 0.94, metalness: 0.10 }),
+  rubber: () => new THREE.MeshStandardMaterial({ color: 0x181a1e, roughness: 0.97, metalness: 0.05 }),
+  cloth: () => new THREE.MeshStandardMaterial({ color: 0x1a1c26, roughness: 0.93, metalness: 0.0, side: THREE.DoubleSide }),
+  visor: () => new THREE.MeshStandardMaterial({ color: 0x0a0c14, emissive: 0x1a4a6a, emissiveIntensity: 0.55, roughness: 0.3, metalness: 0.15 }),
+  glow: () => new THREE.MeshStandardMaterial({ color: 0x14283a, emissive: 0x1a5878, emissiveIntensity: 0.45, roughness: 0.4, metalness: 0.10 }),
+  glowDim: () => new THREE.MeshStandardMaterial({ color: 0x182430, emissive: 0x164058, emissiveIntensity: 0.25, roughness: 0.5, metalness: 0.08 }),
+  accent: () => new THREE.MeshStandardMaterial({ color: 0x506068, roughness: 0.70, metalness: 0.48 }),
+}
 
 export type KnightLimbs = {
   body: THREE.Group
@@ -16,267 +24,335 @@ export type KnightLimbs = {
   legR: THREE.Group
   cape: THREE.Mesh
   tabard: THREE.Mesh
+  glowMats: THREE.MeshStandardMaterial[]
+}
+
+function box(w: number, h: number, d: number, mat: THREE.Material): THREE.Mesh {
+  return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
+}
+function cyl(rt: number, rb: number, h: number, seg: number, mat: THREE.Material): THREE.Mesh {
+  return new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat)
+}
+function sphere(r: number, seg: number, mat: THREE.Material): THREE.Mesh {
+  return new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(4, seg - 2)), mat)
+}
+function halfSphere(r: number, seg: number, mat: THREE.Material, arc = 0.55): THREE.Mesh {
+  return new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(4, seg - 2), 0, Math.PI * 2, 0, Math.PI * arc), mat)
+}
+function at(mesh: THREE.Mesh, x: number, y: number, z: number): THREE.Mesh {
+  mesh.position.set(x, y, z)
+  return mesh
 }
 
 export function buildKnightModel(): { root: THREE.Group; limbs: KnightLimbs } {
   const root = new THREE.Group()
   root.name = 'KnightModel'
 
-  const a = armor()
-  const ad = armorDark()
-  const cm = chainmail()
-  const lth = leather()
-  const cl = cloth()
+  const hl = M.hull()
+  const hw = M.hullWorn()
+  const pn = M.panel()
+  const pd = M.panelDark()
+  const fr = M.frame()
+  const us = M.undersuit()
+  const rb = M.rubber()
+  const cl = M.cloth()
+  const glowMats: THREE.MeshStandardMaterial[] = []
 
-  // === BODY (pivot at waist center y=0.88) ===
+  function glowNode(w: number, h: number, d: number): THREE.Mesh {
+    const mat = M.glow()
+    glowMats.push(mat)
+    return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
+  }
+
+  function glowStrip(w: number, h: number, d: number): THREE.Mesh {
+    const mat = M.glowDim()
+    glowMats.push(mat)
+    return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
+  }
+
+  // =========================================================================
+  //  BODY — pivot at waist (y=0.86)
+  // =========================================================================
   const body = new THREE.Group()
   body.name = 'Body'
-  body.position.set(0, 0.88, 0)
+  body.position.set(0, 0.86, 0)
 
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.44, 0.26), a)
-  torso.position.set(0, 0.28, 0)
-  body.add(torso)
+  // Core chassis / undersuit
+  body.add(at(box(0.42, 0.16, 0.24, us), 0, 0.08, 0))
 
-  const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.20, 0.05), ad)
-  chestPlate.position.set(0, 0.34, -0.155)
-  body.add(chestPlate)
+  // Upper torso — angular plates
+  body.add(at(box(0.48, 0.28, 0.25, hl), 0, 0.28, 0))
+  // Chest panel (front face)
+  body.add(at(box(0.36, 0.20, 0.05, pn), 0, 0.32, -0.15))
+  // Center seam strip
+  body.add(at(box(0.03, 0.24, 0.035, fr), 0, 0.30, -0.17))
+  // Chest glow seam
+  body.add(at(glowStrip(0.20, 0.015, 0.04), 0, 0.38, -0.155))
+  // Upper collar plate
+  body.add(at(box(0.44, 0.045, 0.22, pd), 0, 0.44, 0))
+  // Side panels
+  body.add(at(box(0.055, 0.22, 0.18, pd), -0.245, 0.28, 0))
+  body.add(at(box(0.055, 0.22, 0.18, pd), 0.245, 0.28, 0))
+  // Side glow indicators
+  body.add(at(glowNode(0.02, 0.04, 0.03), -0.275, 0.32, -0.04))
+  body.add(at(glowNode(0.02, 0.04, 0.03), 0.275, 0.32, -0.04))
+  // Back plate
+  body.add(at(box(0.40, 0.24, 0.04, hw), 0, 0.30, 0.15))
+  // Back vent grille
+  body.add(at(box(0.16, 0.10, 0.025, fr), 0, 0.34, 0.165))
 
-  const chestRidge = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.28, 0.04), a)
-  chestRidge.position.set(0, 0.30, -0.175)
-  body.add(chestRidge)
+  // Waist / tactical belt
+  body.add(at(box(0.50, 0.065, 0.28, fr), 0, 0.0, 0))
+  // Belt segments
+  body.add(at(box(0.12, 0.05, 0.035, pd), -0.14, 0.0, -0.155))
+  body.add(at(box(0.12, 0.05, 0.035, pd), 0.14, 0.0, -0.155))
+  // Belt buckle (tech)
+  body.add(at(glowNode(0.06, 0.04, 0.03), 0, 0.0, -0.16))
+  // Utility pouches
+  body.add(at(box(0.065, 0.055, 0.055, pd), -0.19, -0.02, -0.12))
+  body.add(at(box(0.055, 0.045, 0.05, pd), 0.21, -0.01, -0.11))
 
-  const backPlate = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, 0.04), ad)
-  backPlate.position.set(0, 0.32, 0.15)
-  body.add(backPlate)
+  // Segmented lower plates (replaces chainmail)
+  body.add(at(box(0.48, 0.07, 0.28, hl), 0, -0.06, 0))
+  body.add(at(box(0.46, 0.06, 0.27, hw), 0, -0.13, 0))
+  body.add(at(box(0.44, 0.05, 0.26, pd), 0, -0.19, 0))
+  // Front tasset plates
+  body.add(at(box(0.13, 0.14, 0.035, pn), -0.11, -0.18, -0.15))
+  body.add(at(box(0.13, 0.14, 0.035, pn), 0.11, -0.18, -0.15))
+  body.add(at(box(0.09, 0.16, 0.03, hl), 0, -0.19, -0.155))
+  // Rear plate
+  body.add(at(box(0.34, 0.10, 0.035, hw), 0, -0.18, 0.16))
 
-  const belt = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.08, 0.28), lth)
-  belt.position.set(0, 0.02, 0)
-  body.add(belt)
-
-  const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.06, 0.04), a)
-  buckle.position.set(0, 0.02, -0.16)
-  body.add(buckle)
-
-  const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.22, 0.30), cm)
-  skirt.position.set(0, -0.13, 0)
-  body.add(skirt)
-
-  const skirtFlap = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.10, 0.04), lth)
-  skirtFlap.position.set(0, -0.20, -0.17)
-  body.add(skirtFlap)
-
-  const tabard = new THREE.Mesh(new THREE.PlaneGeometry(0.30, 0.50, 3, 6), cl)
+  // Tabard (tech fabric hanging from front)
+  const tabardGeo = new THREE.PlaneGeometry(0.24, 0.40, 3, 8)
+  const tabard = new THREE.Mesh(tabardGeo, cl)
   tabard.name = 'Tabard'
-  tabard.position.set(0, -0.27, -0.15)
+  tabard.position.set(0, -0.30, -0.15)
   body.add(tabard)
+  // Tabard edge glow strip
+  body.add(at(glowStrip(0.03, 0.34, 0.005), 0, -0.28, -0.153))
 
   root.add(body)
 
-  // === HEAD (pivot at neck base y=1.38) ===
+  // =========================================================================
+  //  HEAD — pivot at neck (y=1.36)
+  // =========================================================================
   const head = new THREE.Group()
   head.name = 'Head'
-  head.position.set(0, 1.38, 0)
+  head.position.set(0, 1.36, 0)
 
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.08, 0.10, 7), cm)
-  neck.position.set(0, 0.05, 0)
-  head.add(neck)
+  // Neck ring / collar
+  head.add(at(cyl(0.09, 0.10, 0.06, 8, fr), 0, 0.03, 0))
+  // Neck undersuit
+  head.add(at(cyl(0.075, 0.085, 0.08, 8, us), 0, 0.06, 0))
 
-  const coif = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.07, 0.08, 7), cm)
-  coif.position.set(0, 0.10, 0)
-  head.add(coif)
+  // Helmet — angular barrel shape
+  head.add(at(cyl(0.14, 0.15, 0.26, 8, hl), 0, 0.24, 0))
+  // Helmet dome (slightly angular)
+  head.add(at(halfSphere(0.145, 8, pn, 0.48), 0, 0.37, 0))
+  // Sensor fin (replaces crest)
+  head.add(at(box(0.025, 0.12, 0.16, fr), 0, 0.44, 0))
+  // Fin tip glow
+  head.add(at(glowNode(0.018, 0.03, 0.018), 0, 0.50, 0))
+  // Brow ridge (angular)
+  head.add(at(box(0.30, 0.025, 0.14, pd), 0, 0.31, -0.04))
 
-  const helmetBase = new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.145, 0.24, 8), a)
-  helmetBase.position.set(0, 0.22, 0)
-  head.add(helmetBase)
+  // Face plate (angular)
+  head.add(at(box(0.20, 0.17, 0.04, pn), 0, 0.16, -0.15))
+  // Visor slit (wider, brighter)
+  const visorMat = M.visor()
+  glowMats.push(visorMat)
+  head.add(at(new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.028, 0.06), visorMat), 0, 0.21, -0.14))
+  // Nose bridge (angular vertical)
+  head.add(at(box(0.022, 0.10, 0.04, fr), 0, 0.17, -0.165))
+  // Jaw plate
+  head.add(at(box(0.18, 0.05, 0.055, pd), 0, 0.08, -0.13))
+  // Cheek vents
+  head.add(at(box(0.025, 0.06, 0.06, fr), -0.10, 0.15, -0.11))
+  head.add(at(box(0.025, 0.06, 0.06, fr), 0.10, 0.15, -0.11))
+  // Side panels
+  head.add(at(box(0.04, 0.14, 0.10, hw), -0.13, 0.18, 0))
+  head.add(at(box(0.04, 0.14, 0.10, hw), 0.13, 0.18, 0))
+  // Ear nodes (small sensor bumps)
+  head.add(at(glowNode(0.025, 0.025, 0.02), -0.155, 0.22, 0))
+  head.add(at(glowNode(0.025, 0.025, 0.02), 0.155, 0.22, 0))
+  // Rear neck guard
+  head.add(at(box(0.18, 0.08, 0.04, pd), 0, 0.08, 0.12))
 
-  const helmetDome = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5), a)
-  helmetDome.position.set(0, 0.34, 0)
-  head.add(helmetDome)
-
-  const crest = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.18), ad)
-  crest.position.set(0, 0.38, 0)
-  head.add(crest)
-
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.035, 0.07), visorMat())
-  visor.position.set(0, 0.18, -0.125)
-  head.add(visor)
-
-  const facePlate = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 0.035), a)
-  facePlate.position.set(0, 0.14, -0.15)
-  head.add(facePlate)
-
-  const chinGuard = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.06), ad)
-  chinGuard.position.set(0, 0.06, -0.13)
-  head.add(chinGuard)
+  // Neck drape (tech fabric)
+  const neckDrape = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.16, 3, 3), cl)
+  neckDrape.position.set(0, 0.04, 0.14)
+  neckDrape.rotation.x = 0.25
+  head.add(neckDrape)
 
   root.add(head)
 
-  // === LEFT ARM (pivot at shoulder y=1.32, x=-0.26) ===
+  // =========================================================================
+  //  LEFT ARM — pivot at shoulder (y=1.30, x=-0.27)
+  // =========================================================================
   const armL = new THREE.Group()
   armL.name = 'ArmL'
-  armL.position.set(-0.26, 1.32, 0)
+  armL.position.set(-0.27, 1.30, 0)
 
-  const pauldronOuterL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 7, 5, 0, Math.PI * 2, 0, Math.PI * 0.55), a)
-  pauldronOuterL.position.set(-0.02, 0.04, 0)
-  pauldronOuterL.scale.set(1.2, 0.65, 1.1)
-  armL.add(pauldronOuterL)
+  // Shoulder plate (angular, not round)
+  armL.add(at(box(0.18, 0.06, 0.14, pn), -0.02, 0.04, 0))
+  // Shoulder plate lower
+  armL.add(at(box(0.16, 0.045, 0.12, pd), -0.02, -0.01, 0))
+  // Shoulder glow
+  armL.add(at(glowNode(0.04, 0.015, 0.03), -0.02, 0.07, -0.04))
+  // Shoulder mount ring
+  armL.add(at(cyl(0.065, 0.065, 0.02, 7, fr), 0, -0.03, 0))
 
-  const pauldronInnerL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4, 0, Math.PI * 2, 0, Math.PI * 0.5), ad)
-  pauldronInnerL.position.set(-0.02, 0.0, 0)
-  pauldronInnerL.scale.set(1.1, 0.55, 1.0)
-  armL.add(pauldronInnerL)
+  // Upper arm
+  armL.add(at(cyl(0.058, 0.052, 0.22, 7, us), 0, -0.15, 0))
+  // Upper arm plate
+  armL.add(at(box(0.065, 0.14, 0.055, hl), 0, -0.12, -0.02))
+  // Elbow joint
+  armL.add(at(sphere(0.055, 7, fr), 0, -0.27, 0))
+  // Elbow guard (angular)
+  armL.add(at(box(0.05, 0.055, 0.065, pd), 0, -0.27, -0.04))
 
-  const upperArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.055, 0.26, 7), cm)
-  upperArmL.position.set(0, -0.16, 0)
-  armL.add(upperArmL)
+  // Forearm
+  armL.add(at(cyl(0.052, 0.046, 0.20, 7, us), 0, -0.38, 0))
+  // Forearm armor
+  armL.add(at(box(0.075, 0.16, 0.06, pn), 0, -0.36, -0.02))
+  // Forearm glow strip
+  armL.add(at(glowStrip(0.015, 0.10, 0.02), 0, -0.36, -0.055))
 
-  const elbowL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), a)
-  elbowL.position.set(0, -0.30, 0)
-  armL.add(elbowL)
-
-  const forearmL = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.22, 7), cm)
-  forearmL.position.set(0, -0.42, 0)
-  armL.add(forearmL)
-
-  const vambraceL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.08), a)
-  vambraceL.position.set(0, -0.40, -0.02)
-  armL.add(vambraceL)
-
-  const gauntletL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.08, 0.12), ad)
-  gauntletL.position.set(0, -0.56, 0)
-  armL.add(gauntletL)
+  // Gauntlet
+  armL.add(at(box(0.085, 0.035, 0.10, pd), 0, -0.48, 0))
+  armL.add(at(box(0.09, 0.02, 0.11, fr), 0, -0.46, 0))
+  armL.add(at(box(0.065, 0.035, 0.055, pd), 0, -0.52, -0.02))
 
   root.add(armL)
 
-  // === RIGHT ARM (mirror) ===
+  // =========================================================================
+  //  RIGHT ARM — mirror
+  // =========================================================================
   const armR = new THREE.Group()
   armR.name = 'ArmR'
-  armR.position.set(0.26, 1.32, 0)
+  armR.position.set(0.27, 1.30, 0)
 
-  const pauldronOuterR = new THREE.Mesh(new THREE.SphereGeometry(0.12, 7, 5, 0, Math.PI * 2, 0, Math.PI * 0.55), a)
-  pauldronOuterR.position.set(0.02, 0.04, 0)
-  pauldronOuterR.scale.set(1.2, 0.65, 1.1)
-  armR.add(pauldronOuterR)
+  armR.add(at(box(0.18, 0.06, 0.14, pn), 0.02, 0.04, 0))
+  armR.add(at(box(0.16, 0.045, 0.12, pd), 0.02, -0.01, 0))
+  armR.add(at(glowNode(0.04, 0.015, 0.03), 0.02, 0.07, -0.04))
+  armR.add(at(cyl(0.065, 0.065, 0.02, 7, fr), 0, -0.03, 0))
 
-  const pauldronInnerR = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4, 0, Math.PI * 2, 0, Math.PI * 0.5), ad)
-  pauldronInnerR.position.set(0.02, 0.0, 0)
-  pauldronInnerR.scale.set(1.1, 0.55, 1.0)
-  armR.add(pauldronInnerR)
+  armR.add(at(cyl(0.058, 0.052, 0.22, 7, us), 0, -0.15, 0))
+  armR.add(at(box(0.065, 0.14, 0.055, hl), 0, -0.12, -0.02))
+  armR.add(at(sphere(0.055, 7, fr), 0, -0.27, 0))
+  armR.add(at(box(0.05, 0.055, 0.065, pd), 0, -0.27, -0.04))
 
-  const upperArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.055, 0.26, 7), cm)
-  upperArmR.position.set(0, -0.16, 0)
-  armR.add(upperArmR)
+  armR.add(at(cyl(0.052, 0.046, 0.20, 7, us), 0, -0.38, 0))
+  armR.add(at(box(0.075, 0.16, 0.06, pn), 0, -0.36, -0.02))
+  armR.add(at(glowStrip(0.015, 0.10, 0.02), 0, -0.36, -0.055))
 
-  const elbowR = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), a)
-  elbowR.position.set(0, -0.30, 0)
-  armR.add(elbowR)
-
-  const forearmR = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.22, 7), cm)
-  forearmR.position.set(0, -0.42, 0)
-  armR.add(forearmR)
-
-  const vambraceR = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.14, 0.08), a)
-  vambraceR.position.set(0, -0.40, -0.02)
-  armR.add(vambraceR)
-
-  const gauntletR = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.08, 0.12), ad)
-  gauntletR.position.set(0, -0.56, 0)
-  armR.add(gauntletR)
+  armR.add(at(box(0.085, 0.035, 0.10, pd), 0, -0.48, 0))
+  armR.add(at(box(0.09, 0.02, 0.11, fr), 0, -0.46, 0))
+  armR.add(at(box(0.065, 0.035, 0.055, pd), 0, -0.52, -0.02))
 
   root.add(armR)
 
-  // === LEFT LEG (pivot at hip y=0.78, x=-0.11) ===
+  // =========================================================================
+  //  LEFT LEG — pivot at hip (y=0.76, x=-0.11)
+  // =========================================================================
   const legL = new THREE.Group()
   legL.name = 'LegL'
-  legL.position.set(-0.11, 0.78, 0)
+  legL.position.set(-0.11, 0.76, 0)
 
-  const thighL = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.34, 7), cm)
-  thighL.position.set(0, -0.17, 0)
-  legL.add(thighL)
+  // Thigh undersuit
+  legL.add(at(cyl(0.082, 0.072, 0.28, 7, us), 0, -0.14, 0))
+  // Thigh front plate
+  legL.add(at(box(0.095, 0.20, 0.05, pn), 0, -0.11, -0.05))
+  // Thigh side plate
+  legL.add(at(box(0.04, 0.16, 0.075, pd), -0.055, -0.13, 0))
+  // Thigh glow strip
+  legL.add(at(glowStrip(0.012, 0.12, 0.015), 0, -0.11, -0.078))
 
-  const thighPlateL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.18, 0.06), a)
-  thighPlateL.position.set(0, -0.14, -0.05)
-  legL.add(thighPlateL)
+  // Knee
+  legL.add(at(sphere(0.07, 7, fr), 0, -0.28, -0.01))
+  // Knee cap (angular)
+  legL.add(at(box(0.075, 0.06, 0.055, pd), 0, -0.28, -0.055))
+  // Knee point
+  const kpL = box(0.035, 0.035, 0.035, fr)
+  kpL.rotation.z = Math.PI / 4
+  kpL.position.set(0, -0.31, -0.065)
+  legL.add(kpL)
 
-  const kneeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), a)
-  kneeL.position.set(0, -0.34, -0.02)
-  legL.add(kneeL)
+  // Greave (lower leg)
+  legL.add(at(cyl(0.068, 0.07, 0.30, 7, hl), 0, -0.45, 0))
+  // Shin plate
+  legL.add(at(box(0.065, 0.22, 0.045, pn), 0, -0.43, -0.05))
+  // Shin panel line
+  legL.add(at(box(0.04, 0.18, 0.01, fr), 0, -0.43, -0.075))
+  // Calf plate
+  legL.add(at(box(0.055, 0.16, 0.035, hw), 0, -0.44, 0.05))
 
-  const kneeCapL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.05), ad)
-  kneeCapL.position.set(0, -0.34, -0.06)
-  legL.add(kneeCapL)
-
-  const greaveL = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.075, 0.36, 7), a)
-  greaveL.position.set(0, -0.54, 0)
-  legL.add(greaveL)
-
-  const shinGuardL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.05), ad)
-  shinGuardL.position.set(0, -0.50, -0.05)
-  legL.add(shinGuardL)
-
-  const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.26), lth)
-  bootL.position.set(0, -0.74, -0.02)
-  legL.add(bootL)
-
-  const solePlateL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.22), ad)
-  solePlateL.position.set(0, -0.79, -0.02)
-  legL.add(solePlateL)
+  // Ankle ring
+  legL.add(at(cyl(0.072, 0.076, 0.035, 7, fr), 0, -0.61, 0))
+  // Boot (angular, mech-like)
+  legL.add(at(box(0.13, 0.055, 0.20, pd), 0, -0.65, -0.025))
+  // Toe cap
+  legL.add(at(box(0.11, 0.045, 0.055, fr), 0, -0.65, -0.13))
+  // Heel
+  legL.add(at(box(0.08, 0.04, 0.05, fr), 0, -0.66, 0.09))
+  // Sole
+  legL.add(at(box(0.14, 0.02, 0.22, rb), 0, -0.69, -0.02))
 
   root.add(legL)
 
-  // === RIGHT LEG (mirror) ===
+  // =========================================================================
+  //  RIGHT LEG — mirror
+  // =========================================================================
   const legR = new THREE.Group()
   legR.name = 'LegR'
-  legR.position.set(0.11, 0.78, 0)
+  legR.position.set(0.11, 0.76, 0)
 
-  const thighR = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.075, 0.34, 7), cm)
-  thighR.position.set(0, -0.17, 0)
-  legR.add(thighR)
+  legR.add(at(cyl(0.082, 0.072, 0.28, 7, us), 0, -0.14, 0))
+  legR.add(at(box(0.095, 0.20, 0.05, pn), 0, -0.11, -0.05))
+  legR.add(at(box(0.04, 0.16, 0.075, pd), 0.055, -0.13, 0))
+  legR.add(at(glowStrip(0.012, 0.12, 0.015), 0, -0.11, -0.078))
 
-  const thighPlateR = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.18, 0.06), a)
-  thighPlateR.position.set(0, -0.14, -0.05)
-  legR.add(thighPlateR)
+  legR.add(at(sphere(0.07, 7, fr), 0, -0.28, -0.01))
+  legR.add(at(box(0.075, 0.06, 0.055, pd), 0, -0.28, -0.055))
+  const kpR = box(0.035, 0.035, 0.035, fr)
+  kpR.rotation.z = Math.PI / 4
+  kpR.position.set(0, -0.31, -0.065)
+  legR.add(kpR)
 
-  const kneeR = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), a)
-  kneeR.position.set(0, -0.34, -0.02)
-  legR.add(kneeR)
+  legR.add(at(cyl(0.068, 0.07, 0.30, 7, hl), 0, -0.45, 0))
+  legR.add(at(box(0.065, 0.22, 0.045, pn), 0, -0.43, -0.05))
+  legR.add(at(box(0.04, 0.18, 0.01, fr), 0, -0.43, -0.075))
+  legR.add(at(box(0.055, 0.16, 0.035, hw), 0, -0.44, 0.05))
 
-  const kneeCapR = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.05), ad)
-  kneeCapR.position.set(0, -0.34, -0.06)
-  legR.add(kneeCapR)
-
-  const greaveR = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.075, 0.36, 7), a)
-  greaveR.position.set(0, -0.54, 0)
-  legR.add(greaveR)
-
-  const shinGuardR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.05), ad)
-  shinGuardR.position.set(0, -0.50, -0.05)
-  legR.add(shinGuardR)
-
-  const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.26), lth)
-  bootR.position.set(0, -0.74, -0.02)
-  legR.add(bootR)
-
-  const solePlateR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.22), ad)
-  solePlateR.position.set(0, -0.79, -0.02)
-  legR.add(solePlateR)
+  legR.add(at(cyl(0.072, 0.076, 0.035, 7, fr), 0, -0.61, 0))
+  legR.add(at(box(0.13, 0.055, 0.20, pd), 0, -0.65, -0.025))
+  legR.add(at(box(0.11, 0.045, 0.055, fr), 0, -0.65, -0.13))
+  legR.add(at(box(0.08, 0.04, 0.05, fr), 0, -0.66, 0.09))
+  legR.add(at(box(0.14, 0.02, 0.22, rb), 0, -0.69, -0.02))
 
   root.add(legR)
 
-  // === CAPE (attached at shoulders, hangs down back) ===
-  const capeGeo = new THREE.PlaneGeometry(0.44, 1.0, 5, 12)
+  // =========================================================================
+  //  CAPE — tattered tech-fabric
+  // =========================================================================
+  const capeGeo = new THREE.PlaneGeometry(0.48, 1.10, 6, 14)
   const capeMesh = new THREE.Mesh(capeGeo, cl)
   capeMesh.name = 'Cape'
-  capeMesh.position.set(0, 0.88, 0.16)
+  capeMesh.position.set(0, 0.86, 0.17)
   root.add(capeMesh)
 
   return {
     root,
-    limbs: { body, head, armL, armR, legL, legR, cape: capeMesh, tabard },
+    limbs: { body, head, armL, armR, legL, legR, cape: capeMesh, tabard, glowMats },
   }
 }
 
-const _stride = { phase: 0 }
+// =========================================================================
+//  ANIMATION
+// =========================================================================
+
+let _t = 0
 
 export function animateKnight(
   limbs: KnightLimbs,
@@ -284,58 +360,66 @@ export function animateKnight(
   speed: number,
   phase: number,
 ) {
-  const walkBlend = THREE.MathUtils.smoothstep(speed, 0.3, 2.0)
-  const runBlend = THREE.MathUtils.smoothstep(speed, 6.5, 9.5)
-  _stride.phase += dt
+  _t += dt
 
-  const t = _stride.phase
+  const walkBlend = THREE.MathUtils.smoothstep(speed, 0.2, 2.5)
+  const runBlend = THREE.MathUtils.smoothstep(speed, 6.0, 9.5)
+  const idleBlend = 1 - walkBlend
 
   const p = phase * Math.PI * 2
 
-  // --- IDLE (always running, faded by walkBlend) ---
-  const idleBlend = 1 - walkBlend
-  const idleBodyBob = Math.sin(t * 1.2) * 0.006 * idleBlend
-  const idleArmSway = Math.sin(t * 0.8) * 0.025 * idleBlend
-  const idleHeadNod = Math.sin(t * 0.9) * 0.012 * idleBlend
-  const idleBodySway = Math.sin(t * 0.6) * 0.008 * idleBlend
+  const legP = p
+  const bodyP = p - 0.18
+  const armP = p + Math.PI - 0.12
+  const headP = p - 0.25
 
-  // --- WALK ---
-  const legSwing = THREE.MathUtils.lerp(0.32, 0.52, runBlend) * walkBlend
-  const armSwing = THREE.MathUtils.lerp(0.22, 0.38, runBlend) * walkBlend
-  const bodyBob = THREE.MathUtils.lerp(0.03, 0.055, runBlend) * walkBlend
-  const bodyLean = THREE.MathUtils.lerp(0.018, 0.035, runBlend) * walkBlend
-  const headCounter = THREE.MathUtils.lerp(0.015, 0.025, runBlend) * walkBlend
+  // === IDLE ===
+  const idleBob = Math.sin(_t * 1.1) * 0.005 * idleBlend
+  const idleSway = Math.sin(_t * 0.55) * 0.006 * idleBlend
+  const idleArmDrift = Math.sin(_t * 0.7) * 0.02 * idleBlend
+  const idleHeadTilt = Math.sin(_t * 0.85) * 0.01 * idleBlend
+  const idleBreath = Math.sin(_t * 1.6) * 0.004 * idleBlend
 
-  // Weighty delay: legs lead, body follows with slight lag
-  const legPhase = p
-  const bodyPhase = p - 0.15
-  const armPhase = p + Math.PI - 0.1
+  // === WALK / RUN ===
+  const legAmp = THREE.MathUtils.lerp(0.30, 0.55, runBlend) * walkBlend
+  const armAmp = THREE.MathUtils.lerp(0.20, 0.40, runBlend) * walkBlend
+  const bobAmp = THREE.MathUtils.lerp(0.025, 0.050, runBlend) * walkBlend
+  const leanAmp = THREE.MathUtils.lerp(0.015, 0.032, runBlend) * walkBlend
+  const headCtr = THREE.MathUtils.lerp(0.012, 0.022, runBlend) * walkBlend
+  const fwdLean = THREE.MathUtils.lerp(0.008, 0.025, runBlend) * walkBlend
 
-  // Legs: forward/back swing with slight outward kick
-  limbs.legL.rotation.x = Math.sin(legPhase) * legSwing
-  limbs.legR.rotation.x = Math.sin(legPhase + Math.PI) * legSwing
-  limbs.legL.rotation.z = Math.abs(Math.sin(legPhase)) * 0.02 * walkBlend
-  limbs.legR.rotation.z = -Math.abs(Math.sin(legPhase + Math.PI)) * 0.02 * walkBlend
+  const legSinL = Math.sin(legP)
+  const legSinR = Math.sin(legP + Math.PI)
 
-  // Arms: counter-swing to legs, heavier at run speed
-  limbs.armL.rotation.x = Math.sin(armPhase + Math.PI) * armSwing + idleArmSway
-  limbs.armR.rotation.x = Math.sin(armPhase) * armSwing - idleArmSway
-  limbs.armL.rotation.z = 0.08 + Math.sin(armPhase + Math.PI) * 0.03 * walkBlend
-  limbs.armR.rotation.z = -0.08 - Math.sin(armPhase) * 0.03 * walkBlend
+  limbs.legL.rotation.x = legSinL * legAmp
+  limbs.legR.rotation.x = legSinR * legAmp
+  limbs.legL.rotation.z = Math.abs(legSinL) * 0.018 * walkBlend
+  limbs.legR.rotation.z = -Math.abs(legSinR) * 0.018 * walkBlend
 
-  // Body: vertical bob on double-frequency (two steps per cycle), plus lean
-  const bob = Math.abs(Math.sin(bodyPhase)) * bodyBob + idleBodyBob
-  limbs.body.position.y = 0.88 + bob
-  limbs.body.rotation.z = Math.sin(bodyPhase) * bodyLean + idleBodySway
-  limbs.body.rotation.x = -Math.abs(Math.sin(bodyPhase * 0.5)) * 0.012 * walkBlend
+  limbs.armL.rotation.x = Math.sin(armP + Math.PI) * armAmp + idleArmDrift
+  limbs.armR.rotation.x = Math.sin(armP) * armAmp - idleArmDrift
+  const armOutBase = 0.06 + runBlend * 0.04
+  limbs.armL.rotation.z = armOutBase + Math.sin(armP + Math.PI) * 0.025 * walkBlend
+  limbs.armR.rotation.z = -armOutBase - Math.sin(armP) * 0.025 * walkBlend
 
-  // Head: slight counter-rotation for weight
-  limbs.head.rotation.x = -Math.sin(bodyPhase) * headCounter + idleHeadNod
-  limbs.head.rotation.z = -Math.sin(bodyPhase) * bodyLean * 0.3
+  const bodySin = Math.sin(bodyP)
+  const bob = Math.abs(Math.sin(bodyP)) * bobAmp + idleBob + idleBreath
+  limbs.body.position.y = 0.86 + bob
+  limbs.body.rotation.z = bodySin * leanAmp + idleSway
+  limbs.body.rotation.x = -fwdLean - Math.abs(Math.sin(bodyP * 0.5)) * 0.008 * walkBlend
 
-  // Cape position follows body
-  limbs.cape.position.y = 0.88 + bob
+  limbs.head.rotation.x = -Math.sin(headP) * headCtr + idleHeadTilt
+  limbs.head.rotation.z = -bodySin * leanAmp * 0.35
 
-  // Tabard slight swing
-  limbs.tabard.rotation.x = Math.sin(legPhase * 0.5) * 0.06 * walkBlend
+  limbs.cape.position.y = 0.86 + bob
+
+  limbs.tabard.rotation.x = Math.sin(legP * 0.5) * 0.05 * walkBlend
+
+  // Glow pulse (slow, subtle, like dormant tech)
+  const glowPulse = 0.85 + 0.15 * Math.sin(_t * 1.8)
+  for (const mat of limbs.glowMats) {
+    mat.emissiveIntensity = mat === limbs.glowMats[0]
+      ? glowPulse * 0.45
+      : glowPulse * (mat.emissiveIntensity > 0.3 ? 0.45 : 0.25)
+  }
 }

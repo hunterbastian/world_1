@@ -3,25 +3,29 @@ import * as THREE from 'three'
 export type WalkerTier = 'scout' | 'assault'
 
 type TierDims = {
-  hullW: number
-  hullH: number
-  hullD: number
-  armorBoost: number
+  bodyR: number
+  bodySquashY: number
+  bodyStretchZ: number
+  collarH: number
+  bellyH: number
+  headW: number
+  headH: number
+  headD: number
+  pylonLen: number
+  barrelR: number
+  barrelLen: number
   hipY: number
-  hipX: number
-  hipZ: number
-  footX: number
-  footZ: number
-  kneeBias: number
+  hipXSpread: number
+  hipZSpread: number
+  upperLen: number
   upperR: number
+  lowerLen: number
   lowerR: number
   footW: number
   footD: number
   footH: number
-  turretR: number
-  turretH: number
-  barrelR: number
-  barrelLen: number
+  toeLen: number
+  toeW: number
   hullColor: number
   armorColor: number
   jointColor: number
@@ -30,53 +34,61 @@ type TierDims = {
 function tierDims(tier: WalkerTier): TierDims {
   if (tier === 'scout') {
     return {
-      hullW: 2.0,
-      hullH: 1.05,
-      hullD: 2.65,
-      armorBoost: 0.12,
-      hipY: 1.82,
-      hipX: 0.72,
-      hipZ: 0.88,
-      footX: 1.02,
-      footZ: 1.18,
-      kneeBias: 0.42,
-      upperR: 0.14,
-      lowerR: 0.11,
-      footW: 0.42,
-      footD: 0.52,
-      footH: 0.12,
-      turretR: 0.38,
-      turretH: 0.32,
-      barrelR: 0.1,
-      barrelLen: 0.95,
-      hullColor: 0x3a3d45,
-      armorColor: 0x5c616c,
-      jointColor: 0x2a2c32,
+      bodyR: 1.05,
+      bodySquashY: 0.62,
+      bodyStretchZ: 1.08,
+      collarH: 0.12,
+      bellyH: 0.14,
+      headW: 0.48,
+      headH: 0.34,
+      headD: 0.38,
+      pylonLen: 0.32,
+      barrelR: 0.055,
+      barrelLen: 0.80,
+      hipY: 1.90,
+      hipXSpread: 0.88,
+      hipZSpread: 0.58,
+      upperLen: 1.10,
+      upperR: 0.115,
+      lowerLen: 1.0,
+      lowerR: 0.085,
+      footW: 0.28,
+      footD: 0.30,
+      footH: 0.065,
+      toeLen: 0.20,
+      toeW: 0.048,
+      hullColor: 0x8a8f98,
+      armorColor: 0xa2a8b2,
+      jointColor: 0x3c4048,
     }
   }
   return {
-    hullW: 3.72,
-    hullH: 1.88,
-    hullD: 4.62,
-    armorBoost: 0.24,
-    hipY: 2.22,
-    hipX: 1.26,
-    hipZ: 1.52,
-    footX: 1.78,
-    footZ: 2.08,
-    kneeBias: 0.41,
-    upperR: 0.31,
-    lowerR: 0.24,
-    footW: 0.8,
-    footD: 0.98,
-    footH: 0.24,
-    turretR: 0.7,
-    turretH: 0.54,
-    barrelR: 0.175,
-    barrelLen: 1.62,
-    hullColor: 0x2f3238,
-    armorColor: 0x4a4f58,
-    jointColor: 0x22242a,
+    bodyR: 1.78,
+    bodySquashY: 0.58,
+    bodyStretchZ: 1.12,
+    collarH: 0.20,
+    bellyH: 0.22,
+    headW: 0.78,
+    headH: 0.52,
+    headD: 0.56,
+    pylonLen: 0.50,
+    barrelR: 0.092,
+    barrelLen: 1.38,
+    hipY: 3.0,
+    hipXSpread: 1.45,
+    hipZSpread: 0.95,
+    upperLen: 1.65,
+    upperR: 0.21,
+    lowerLen: 1.50,
+    lowerR: 0.155,
+    footW: 0.50,
+    footD: 0.52,
+    footH: 0.12,
+    toeLen: 0.34,
+    toeW: 0.085,
+    hullColor: 0x6e7480,
+    armorColor: 0x8c929c,
+    jointColor: 0x32363e,
   }
 }
 
@@ -86,33 +98,40 @@ function shadeColor(hex: number, mult: number) {
   return c.getHex()
 }
 
-function orientCylinder(
-  mesh: THREE.Mesh,
-  from: THREE.Vector3,
-  to: THREE.Vector3,
-  radius: number,
-  radialSeg = 8
-) {
-  const dir = new THREE.Vector3().subVectors(to, from)
-  const len = dir.length()
-  if (len < 1e-6) return
-  mesh.geometry.dispose()
-  mesh.geometry = new THREE.CylinderGeometry(radius, radius, len, radialSeg, 1)
-  const mid = new THREE.Vector3().addVectors(from, to).multiplyScalar(0.5)
-  mesh.position.copy(mid)
-  const up = new THREE.Vector3(0, 1, 0)
-  mesh.quaternion.setFromUnitVectors(up, dir.clone().normalize())
-}
-
 function shadow(mesh: THREE.Mesh) {
   mesh.castShadow = true
   mesh.receiveShadow = true
 }
 
+/* ── Limb references for animation ─────────────────────────────── */
+
+export type LegLimb = {
+  upper: THREE.Group
+  lower: THREE.Group
+  foot: THREE.Group
+  restUpperX: number
+  restUpperZ: number
+  restLowerX: number
+  restFootX: number
+  isFront: boolean
+}
+
+export type WalkerLimbs = {
+  hull: THREE.Group
+  head: THREE.Group
+  weaponL: THREE.Group
+  weaponR: THREE.Group
+  legs: LegLimb[]
+  restHullY: number
+}
+
+/* ── Walker model ──────────────────────────────────────────────── */
+
 export class WalkerMech {
   public readonly object3d: THREE.Group
   public readonly tier: WalkerTier
   public readonly name: string
+  public readonly limbs: WalkerLimbs
 
   constructor(tier: WalkerTier, name: string) {
     this.tier = tier
@@ -121,267 +140,396 @@ export class WalkerMech {
     this.object3d.name = `WalkerMech:${name}`
 
     const d = tierDims(tier)
-    const fac = tier === 'scout' ? 1 : 1.06
 
-    const hullMat = new THREE.MeshStandardMaterial({
-      color: d.hullColor,
-      roughness: 0.88,
-      metalness: 0.22,
-    })
-    const armorMat = new THREE.MeshStandardMaterial({
-      color: d.armorColor,
-      roughness: 0.82,
-      metalness: 0.28,
-    })
-    const jointMat = new THREE.MeshStandardMaterial({
-      color: d.jointColor,
-      roughness: 0.9,
-      metalness: 0.35,
-    })
+    const hullMat = new THREE.MeshStandardMaterial({ color: d.hullColor, roughness: 0.52, metalness: 0.62 })
+    const armorMat = new THREE.MeshStandardMaterial({ color: d.armorColor, roughness: 0.45, metalness: 0.68 })
+    const jointMat = new THREE.MeshStandardMaterial({ color: d.jointColor, roughness: 0.72, metalness: 0.55 })
     const panelMat = new THREE.MeshStandardMaterial({
-      color: shadeColor(d.hullColor, 0.78),
-      roughness: 0.92,
-      metalness: 0.2,
+      color: shadeColor(d.hullColor, 0.78), roughness: 0.92, metalness: 0.18,
     })
-    const rivetMat = new THREE.MeshStandardMaterial({
-      color: shadeColor(d.jointColor, 1.15),
-      roughness: 0.75,
-      metalness: 0.45,
+    const visorMat = new THREE.MeshStandardMaterial({
+      color: 0x0a0e14, emissive: 0x1a2a4a, emissiveIntensity: 0.3, roughness: 0.5, metalness: 0.0,
     })
 
-    const hullBottomY = d.hipY
+    /* ============ HULL (dome body) ============ */
 
-    const bellyH = d.hullH * 0.48
+    const hull = new THREE.Group()
+    hull.name = 'Hull'
+
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(d.bodyR, 16, 12), hullMat)
+    dome.scale.set(1.0, d.bodySquashY, d.bodyStretchZ)
+    dome.position.y = d.hipY
+    shadow(dome)
+    hull.add(dome)
+
     const belly = new THREE.Mesh(
-      new THREE.BoxGeometry(d.hullW * 1.02, bellyH, d.hullD * 0.94),
-      hullMat
+      new THREE.BoxGeometry(d.bodyR * 1.52, d.bellyH, d.bodyR * d.bodyStretchZ * 1.42),
+      armorMat,
     )
-    belly.position.set(0, hullBottomY + bellyH * 0.5, 0)
+    belly.position.y = d.hipY - d.bodyR * d.bodySquashY * 0.56
     shadow(belly)
-    this.object3d.add(belly)
+    hull.add(belly)
 
-    const cabinH = d.hullH * 0.58
-    const cabin = new THREE.Mesh(
-      new THREE.BoxGeometry(d.hullW * 0.86, cabinH, d.hullD * 0.88),
-      hullMat
+    const collar = new THREE.Mesh(
+      new THREE.CylinderGeometry(d.bodyR * 1.06, d.bodyR * 1.10, d.collarH, 16),
+      armorMat,
     )
-    cabin.position.set(0, hullBottomY + bellyH + cabinH * 0.5 - 0.04, 0.06 * fac)
-    shadow(cabin)
-    this.object3d.add(cabin)
+    collar.scale.z = d.bodyStretchZ
+    collar.position.y = d.hipY + d.bodyR * d.bodySquashY * 0.18
+    shadow(collar)
+    hull.add(collar)
 
-    const glacis = new THREE.Mesh(
-      new THREE.BoxGeometry(d.hullW * 0.72, d.hullH * 0.38, 0.28 * fac),
-      armorMat
-    )
-    glacis.position.set(0, hullBottomY + bellyH + cabinH * 0.35, -d.hullD * 0.44)
-    glacis.rotation.x = THREE.MathUtils.degToRad(38)
-    shadow(glacis)
-    this.object3d.add(glacis)
-
-    for (const sx of [-1, 1] as const) {
-      const skirt = new THREE.Mesh(
-        new THREE.BoxGeometry(0.11 * fac, bellyH * 0.92, d.hullD * 0.86),
-        panelMat
+    const panelHeights = [-0.28, 0.0, 0.28]
+    for (const hFrac of panelHeights) {
+      const yOff = d.bodyR * d.bodySquashY * hFrac
+      const sliceR = d.bodyR * Math.sqrt(Math.max(0.01, 1 - hFrac * hFrac))
+      const strip = new THREE.Mesh(
+        new THREE.BoxGeometry(sliceR * 2.08, 0.028, 0.048),
+        panelMat,
       )
-      skirt.position.set(sx * (d.hullW * 0.52 + 0.04), hullBottomY + bellyH * 0.46, 0)
-      shadow(skirt)
-      this.object3d.add(skirt)
-
-      const rail = new THREE.Mesh(
-        new THREE.BoxGeometry(0.06, cabinH * 0.55, d.hullD * 0.06),
-        panelMat
-      )
-      rail.position.set(sx * (d.hullW * 0.38), hullBottomY + bellyH + cabinH * 0.45, -d.hullD * 0.41)
-      shadow(rail)
-      this.object3d.add(rail)
+      strip.position.set(0, d.hipY + yOff, 0)
+      shadow(strip)
+      hull.add(strip)
     }
 
     const bustle = new THREE.Mesh(
-      new THREE.BoxGeometry(d.hullW * 0.68, d.hullH * 0.22, 0.48 * fac),
-      jointMat
+      new THREE.BoxGeometry(d.bodyR * 0.62, d.bodyR * d.bodySquashY * 0.40, d.bodyR * 0.38),
+      panelMat,
     )
-    bustle.position.set(0, hullBottomY + bellyH * 0.65, d.hullD * 0.36)
-    bustle.rotation.x = -0.12
+    bustle.position.set(0, d.hipY - d.bodyR * d.bodySquashY * 0.08, d.bodyR * d.bodyStretchZ * 0.80)
+    bustle.rotation.x = -0.15
     shadow(bustle)
-    this.object3d.add(bustle)
+    hull.add(bustle)
 
-    for (let i = 0; i < 3; i++) {
-      const zOf = THREE.MathUtils.lerp(-d.hullD * 0.32, d.hullD * 0.28, i / 2)
-      const strip = new THREE.Mesh(
-        new THREE.BoxGeometry(d.hullW * 1.08, 0.045, 0.07),
-        panelMat
+    /* ============ HEAD (sensor turret) ============ */
+
+    const head = new THREE.Group()
+    head.name = 'Head'
+
+    const neckRing = new THREE.Mesh(
+      new THREE.TorusGeometry(d.headW * 0.55, Math.max(0.025, d.headW * 0.065), 6, 16),
+      jointMat,
+    )
+    neckRing.rotation.x = Math.PI / 2
+    shadow(neckRing)
+    head.add(neckRing)
+
+    const headBlock = new THREE.Mesh(
+      new THREE.BoxGeometry(d.headW, d.headH, d.headD),
+      armorMat,
+    )
+    headBlock.position.y = d.headH * 0.5 + 0.02
+    shadow(headBlock)
+    head.add(headBlock)
+
+    const headCap = new THREE.Mesh(
+      new THREE.BoxGeometry(d.headW * 0.75, d.headH * 0.25, d.headD * 0.80),
+      hullMat,
+    )
+    headCap.position.y = d.headH + 0.02
+    shadow(headCap)
+    head.add(headCap)
+
+    const visor = new THREE.Mesh(
+      new THREE.BoxGeometry(d.headW * 0.78, d.headH * 0.14, 0.02),
+      visorMat,
+    )
+    visor.position.set(0, d.headH * 0.50, -d.headD * 0.51)
+    shadow(visor)
+    head.add(visor)
+
+    const sensorR = Math.max(0.022, d.headW * 0.07)
+    const sensorGeo = new THREE.SphereGeometry(sensorR, 6, 4)
+    for (const sx of [-1, 1]) {
+      const sensor = new THREE.Mesh(sensorGeo, jointMat)
+      sensor.position.set(sx * d.headW * 0.44, d.headH * 0.32, -d.headD * 0.32)
+      shadow(sensor)
+      head.add(sensor)
+    }
+
+    head.position.set(
+      0,
+      d.hipY + d.bodyR * d.bodySquashY + 0.04,
+      -d.bodyR * d.bodyStretchZ * 0.10,
+    )
+    hull.add(head)
+
+    /* ============ SIDE WEAPONS ============ */
+
+    const buildPylon = (side: number): THREE.Group => {
+      const wpn = new THREE.Group()
+      wpn.name = side < 0 ? 'WeaponL' : 'WeaponR'
+
+      const pylonR = d.upperR * 0.48
+      const pylon = new THREE.Mesh(
+        new THREE.CylinderGeometry(pylonR, pylonR * 0.90, d.pylonLen, 6),
+        jointMat,
       )
-      strip.position.set(0, hullBottomY + bellyH * 0.35 + i * 0.22 * fac, zOf)
-      shadow(strip)
-      this.object3d.add(strip)
-    }
+      pylon.rotation.z = side * Math.PI / 2
+      pylon.position.x = side * d.pylonLen * 0.5
+      shadow(pylon)
+      wpn.add(pylon)
 
-    const rivetR = tier === 'scout' ? 0.026 : 0.034
-    const rivetCols = tier === 'scout' ? 4 : 5
-    const rivetGeo = new THREE.SphereGeometry(rivetR, 7, 5)
-    for (const sx of [-1, 1] as const) {
-      const x0 = sx * (d.hullW * 0.52 + 0.102)
-      for (let r = 0; r < rivetCols; r++) {
-        const tz = THREE.MathUtils.lerp(
-          -d.hullD * 0.36,
-          d.hullD * 0.36,
-          rivetCols > 1 ? r / (rivetCols - 1) : 0.5
-        )
-        for (let row = 0; row < 2; row++) {
-          const ry = hullBottomY + bellyH * (0.32 + row * 0.38)
-          const rivet = new THREE.Mesh(rivetGeo, rivetMat)
-          rivet.position.set(x0, ry, tz)
-          shadow(rivet)
-          this.object3d.add(rivet)
-        }
-      }
-    }
-
-    const roofY = hullBottomY + bellyH + cabinH
-    const deckY = roofY - 0.04 * fac
-    const deckSegments: Array<{ z: number; w: number; dz: number }> = [
-      { z: -d.hullD * 0.26, w: 0.82, dz: 0.42 },
-      { z: 0.02, w: 1.0, dz: 0.52 },
-      { z: d.hullD * 0.26, w: 0.82, dz: 0.42 },
-    ]
-    for (const seg of deckSegments) {
-      const plate = new THREE.Mesh(
-        new THREE.BoxGeometry(
-          d.hullW * seg.w + d.armorBoost * 0.35,
-          0.07 * fac,
-          d.hullD * seg.dz * 0.32
-        ),
-        armorMat
+      const barrel = new THREE.Mesh(
+        new THREE.CylinderGeometry(d.barrelR, d.barrelR * 0.88, d.barrelLen, 8),
+        jointMat,
       )
-      plate.position.set(0, deckY, seg.z)
-      shadow(plate)
-      this.object3d.add(plate)
+      barrel.rotation.x = Math.PI / 2
+      barrel.position.set(side * d.pylonLen, 0, -d.barrelLen * 0.48)
+      shadow(barrel)
+      wpn.add(barrel)
+
+      const muzzleLen = d.barrelLen * 0.09
+      const muzzle = new THREE.Mesh(
+        new THREE.CylinderGeometry(d.barrelR * 1.35, d.barrelR * 1.15, muzzleLen, 6),
+        jointMat,
+      )
+      muzzle.rotation.x = Math.PI / 2
+      muzzle.position.set(side * d.pylonLen, 0, -d.barrelLen - muzzleLen * 0.42)
+      shadow(muzzle)
+      wpn.add(muzzle)
+
+      wpn.position.set(
+        side * d.bodyR * 0.78,
+        d.hipY + d.bodyR * d.bodySquashY * 0.06,
+        -d.bodyR * d.bodyStretchZ * 0.28,
+      )
+      return wpn
     }
 
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(d.turretR * 1.05, Math.max(0.04, d.turretR * 0.09), 8, 28),
-      jointMat
-    )
-    ring.rotation.x = Math.PI / 2
-    ring.position.set(0, roofY + 0.05 * fac, 0)
-    shadow(ring)
-    this.object3d.add(ring)
+    const weaponL = buildPylon(-1)
+    const weaponR = buildPylon(1)
+    hull.add(weaponL)
+    hull.add(weaponR)
 
-    const turretY = roofY + 0.06 * fac + d.turretH * 0.4
-    const turretBase = new THREE.Mesh(
-      new THREE.CylinderGeometry(d.turretR * 0.92, d.turretR * 1.06, d.turretH, 12, 1),
-      armorMat
-    )
-    turretBase.position.set(0, turretY, 0)
-    shadow(turretBase)
-    this.object3d.add(turretBase)
+    this.object3d.add(hull)
 
-    const mantlet = new THREE.Mesh(
-      new THREE.BoxGeometry(d.turretR * 1.14, d.turretH * 0.72, d.turretR * 0.48),
-      hullMat
-    )
-    mantlet.position.set(0, turretY, -d.turretR * 0.78)
-    shadow(mantlet)
-    this.object3d.add(mantlet)
+    /* ============ LEGS (4x nested group chain) ============ */
 
-    const barrel = new THREE.Mesh(
-      new THREE.CylinderGeometry(d.barrelR, d.barrelR * 0.9, d.barrelLen, 10, 1),
-      jointMat
-    )
-    barrel.rotation.x = Math.PI / 2
-    barrel.position.set(0, turretY, -d.turretR - d.barrelLen * 0.48)
-    shadow(barrel)
-    this.object3d.add(barrel)
-
-    const brakeLen = d.barrelLen * 0.09
-    const muzzleBrake = new THREE.Mesh(
-      new THREE.CylinderGeometry(d.barrelR * 1.38, d.barrelR * 1.2, brakeLen, 8, 1),
-      jointMat
-    )
-    muzzleBrake.rotation.x = Math.PI / 2
-    muzzleBrake.position.set(0, turretY, -d.turretR - d.barrelLen - brakeLen * 0.48)
-    shadow(muzzleBrake)
-    this.object3d.add(muzzleBrake)
-
-    const boreTip = new THREE.Mesh(
-      new THREE.CylinderGeometry(d.barrelR * 0.42, d.barrelR * 0.5, d.barrelLen * 0.05, 6, 1),
-      jointMat
-    )
-    boreTip.rotation.x = Math.PI / 2
-    boreTip.position.set(0, turretY, -d.turretR - d.barrelLen - brakeLen - d.barrelLen * 0.025)
-    shadow(boreTip)
-    this.object3d.add(boreTip)
-
-    const flips: Array<{ sx: number; sz: number }> = [
-      { sx: -1, sz: 1 },
-      { sx: 1, sz: 1 },
-      { sx: -1, sz: -1 },
-      { sx: 1, sz: -1 },
+    const legConfigs: Array<{ sx: 1 | -1; sz: 1 | -1; label: string; isFront: boolean }> = [
+      { sx: -1, sz: -1, label: 'FL', isFront: true },
+      { sx: 1, sz: -1, label: 'FR', isFront: true },
+      { sx: -1, sz: 1, label: 'RL', isFront: false },
+      { sx: 1, sz: 1, label: 'RR', isFront: false },
     ]
 
-    for (const { sx, sz } of flips) {
-      const hip = new THREE.Vector3(sx * d.hipX, d.hipY, sz * d.hipZ)
-      const foot = new THREE.Vector3(sx * d.footX, d.footH * 0.5, sz * d.footZ)
-      const knee = new THREE.Vector3().lerpVectors(hip, foot, d.kneeBias)
-      knee.x += sx * 0.18
-      knee.z += sz * 0.14
-      knee.y -= 0.12
+    const legs: LegLimb[] = []
 
-      const upper = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 10, 1), jointMat)
-      orientCylinder(upper, hip, knee, d.upperR)
-      shadow(upper)
-      this.object3d.add(upper)
+    for (const cfg of legConfigs) {
+      const { sx, sz, isFront } = cfg
 
-      const shroud = new THREE.Mesh(
-        new THREE.BoxGeometry(d.upperR * 2.75, d.upperR * 1.85, d.upperR * 2.35),
-        panelMat
+      const hipX = sx * d.hipXSpread
+      const hipZ = sz * d.hipZSpread
+      const hipAttachY = d.hipY - d.bodyR * d.bodySquashY * 0.18
+
+      const legGroup = new THREE.Group()
+      legGroup.name = `Leg_${cfg.label}`
+      legGroup.position.set(hipX, hipAttachY, hipZ)
+
+      const hipBall = new THREE.Mesh(
+        new THREE.SphereGeometry(d.upperR * 1.45, 8, 6),
+        jointMat,
       )
-      shroud.position.copy(knee)
-      shroud.position.y += d.upperR * 0.22
-      shroud.rotation.y = Math.atan2(sx * (foot.x - knee.x), sz * (foot.z - knee.z)) * 0.35
-      shadow(shroud)
-      this.object3d.add(shroud)
+      shadow(hipBall)
+      legGroup.add(hipBall)
 
-      const kneeMesh = new THREE.Mesh(
-        new THREE.SphereGeometry((d.upperR + d.lowerR) * 0.52, 10, 8),
-        jointMat
+      const restSplayZ = sx * 0.48
+      const restLeanX = isFront ? -0.18 : 0.18
+      const restKneeBend = 0.88
+      const restFootAngle = -(restLeanX + restKneeBend)
+
+      /* -- upper leg -- */
+
+      const upperGroup = new THREE.Group()
+      upperGroup.name = `Upper_${cfg.label}`
+      upperGroup.rotation.z = restSplayZ
+      upperGroup.rotation.x = restLeanX
+
+      const upperMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(d.upperR, d.upperR * 0.82, d.upperLen, 8),
+        jointMat,
       )
-      kneeMesh.position.copy(knee)
-      shadow(kneeMesh)
-      this.object3d.add(kneeMesh)
+      upperMesh.position.y = -d.upperLen * 0.5
+      shadow(upperMesh)
+      upperGroup.add(upperMesh)
 
-      const lower = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 10, 1), jointMat)
-      orientCylinder(lower, knee, foot, d.lowerR)
-      shadow(lower)
-      this.object3d.add(lower)
+      const upperPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(d.upperR * 2.4, d.upperLen * 0.52, d.upperR * 0.55),
+        panelMat,
+      )
+      upperPanel.position.set(sx * d.upperR * 0.15, -d.upperLen * 0.30, 0)
+      shadow(upperPanel)
+      upperGroup.add(upperPanel)
 
-      const strutA = knee.clone().lerp(foot, 0.38)
-      strutA.y += d.lowerR * 0.55
-      const strutB = foot.clone()
-      strutB.y += d.footH * 0.7
-      const strut = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 6, 1), panelMat)
-      orientCylinder(strut, strutA, strutB, d.lowerR * 0.36)
-      shadow(strut)
-      this.object3d.add(strut)
+      /* -- knee -- */
+
+      const kneeR = (d.upperR + d.lowerR) * 0.56
+      const kneeBall = new THREE.Mesh(
+        new THREE.SphereGeometry(kneeR, 8, 6),
+        jointMat,
+      )
+      kneeBall.position.y = -d.upperLen
+      shadow(kneeBall)
+      upperGroup.add(kneeBall)
+
+      const kneeShroud = new THREE.Mesh(
+        new THREE.BoxGeometry(d.upperR * 2.3, d.upperR * 1.7, d.upperR * 2.1),
+        panelMat,
+      )
+      kneeShroud.position.y = -d.upperLen + d.upperR * 0.08
+      shadow(kneeShroud)
+      upperGroup.add(kneeShroud)
+
+      /* -- lower leg -- */
+
+      const lowerGroup = new THREE.Group()
+      lowerGroup.name = `Lower_${cfg.label}`
+      lowerGroup.position.y = -d.upperLen
+      lowerGroup.rotation.x = restKneeBend
+
+      const lowerMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(d.lowerR, d.lowerR * 0.78, d.lowerLen, 8),
+        jointMat,
+      )
+      lowerMesh.position.y = -d.lowerLen * 0.5
+      shadow(lowerMesh)
+      lowerGroup.add(lowerMesh)
+
+      const lowerPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(d.lowerR * 2.2, d.lowerLen * 0.42, d.lowerR * 0.45),
+        panelMat,
+      )
+      lowerPanel.position.set(0, -d.lowerLen * 0.38, sx * -d.lowerR * 0.2)
+      shadow(lowerPanel)
+      lowerGroup.add(lowerPanel)
+
+      /* -- ankle -- */
+
+      const ankleBall = new THREE.Mesh(
+        new THREE.SphereGeometry(d.lowerR * 0.85, 7, 5),
+        jointMat,
+      )
+      ankleBall.position.y = -d.lowerLen
+      shadow(ankleBall)
+      lowerGroup.add(ankleBall)
+
+      /* -- foot + toes -- */
+
+      const footGroup = new THREE.Group()
+      footGroup.name = `Foot_${cfg.label}`
+      footGroup.position.y = -d.lowerLen
+      footGroup.rotation.x = restFootAngle
 
       const heel = new THREE.Mesh(
-        new THREE.BoxGeometry(d.footW * 1.02, d.footH, d.footD * 0.62),
-        hullMat
+        new THREE.BoxGeometry(d.footW, d.footH, d.footD * 0.55),
+        hullMat,
       )
-      heel.position.set(foot.x, foot.y, foot.z - sz * d.footD * 0.08)
+      heel.position.y = -d.footH * 0.5
       shadow(heel)
-      this.object3d.add(heel)
+      footGroup.add(heel)
 
-      const toe = new THREE.Mesh(
-        new THREE.BoxGeometry(d.footW * 0.58, d.footH * 0.9, d.footD * 0.4),
-        panelMat
-      )
-      toe.position.set(foot.x, foot.y + d.footH * 0.04, foot.z + sz * d.footD * 0.36)
-      shadow(toe)
-      this.object3d.add(toe)
+      const toeCfg = [
+        { tx: 0, angle: 0 },
+        { tx: -d.footW * 0.36, angle: -0.25 },
+        { tx: d.footW * 0.36, angle: 0.25 },
+      ]
+      for (const tc of toeCfg) {
+        const toe = new THREE.Mesh(
+          new THREE.BoxGeometry(d.toeW, d.footH * 0.72, d.toeLen),
+          panelMat,
+        )
+        toe.position.set(tc.tx, -d.footH * 0.42, -d.toeLen * 0.44 - d.footD * 0.18)
+        toe.rotation.y = tc.angle
+        shadow(toe)
+        footGroup.add(toe)
+      }
+
+      lowerGroup.add(footGroup)
+      upperGroup.add(lowerGroup)
+      legGroup.add(upperGroup)
+      this.object3d.add(legGroup)
+
+      legs.push({
+        upper: upperGroup,
+        lower: lowerGroup,
+        foot: footGroup,
+        restUpperX: restLeanX,
+        restUpperZ: restSplayZ,
+        restLowerX: restKneeBend,
+        restFootX: restFootAngle,
+        isFront,
+      })
     }
+
+    this.limbs = { hull, head, weaponL, weaponR, legs, restHullY: 0 }
   }
 
-  /** Reserved for future animation; dormant models are static for now. */
   update(_dt: number) {}
+}
+
+/* ── Procedural animation ──────────────────────────────────────── */
+
+const _walkerStride = { phase: 0 }
+
+export function animateWalker(
+  limbs: WalkerLimbs,
+  dt: number,
+  speed: number,
+  phase: number,
+) {
+  const walkBlend = THREE.MathUtils.smoothstep(speed, 0.3, 2.0)
+  const idleBlend = 1 - walkBlend
+
+  _walkerStride.phase = (_walkerStride.phase + dt) % 600
+  const t = _walkerStride.phase
+  const p = phase * Math.PI * 2
+
+  /* ---- idle ---- */
+  const idleBob = Math.sin(t * 0.8) * 0.018 * idleBlend
+  const idleRock = Math.sin(t * 0.5) * 0.008 * idleBlend
+  const idleHeadNod = Math.sin(t * 0.7) * 0.015 * idleBlend
+
+  limbs.weaponL.rotation.x = Math.sin(t * 0.4) * 0.012 * idleBlend
+  limbs.weaponR.rotation.x = Math.sin(t * 0.4 + 0.5) * 0.012 * idleBlend
+
+  /* ---- walk / trot ---- */
+  const legSwing = 0.16 * walkBlend
+  const kneeExtra = 0.22 * walkBlend
+  const bodyBob = 0.025 * walkBlend
+  const bodyRoll = 0.016 * walkBlend
+  const headCounter = 0.010 * walkBlend
+
+  for (let i = 0; i < limbs.legs.length; i++) {
+    const leg = limbs.legs[i]
+    const pairPhase = (i === 0 || i === 3) ? p : p + Math.PI
+    const fwdSign = leg.isFront ? 1 : -1
+
+    const idleMicro = Math.sin(t * 0.6 + i * 1.5) * 0.016 * idleBlend
+
+    leg.upper.rotation.x = leg.restUpperX
+      + Math.sin(pairPhase) * legSwing * fwdSign
+      + idleMicro
+    leg.upper.rotation.z = leg.restUpperZ
+      + Math.cos(pairPhase) * 0.025 * walkBlend
+
+    const lift = Math.max(0, Math.sin(pairPhase))
+    leg.lower.rotation.x = leg.restLowerX
+      + lift * kneeExtra
+      - idleMicro * 0.35
+
+    leg.foot.rotation.x = leg.restFootX
+      - Math.sin(pairPhase) * legSwing * fwdSign * 0.45
+      - lift * kneeExtra * 0.32
+  }
+
+  /* ---- hull dynamics ---- */
+  limbs.hull.position.y = limbs.restHullY
+    + Math.abs(Math.sin(p * 2)) * bodyBob
+    + idleBob
+  limbs.hull.rotation.z = Math.sin(p) * bodyRoll + idleRock
+  limbs.hull.rotation.x = -Math.abs(Math.sin(p * 0.5)) * 0.007 * walkBlend
+
+  /* ---- head counter-motion ---- */
+  limbs.head.rotation.x = -Math.sin(p) * headCounter + idleHeadNod
+  limbs.head.rotation.z = -Math.sin(p) * bodyRoll * 0.28
 }

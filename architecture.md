@@ -51,7 +51,7 @@ One-liner per file and exported function/class.
 | `PointsOfInterest.ts` | `PointsOfInterest`, `POI` | Spawns ruin/shrine/camp POIs with discovery orbs. Proximity-based discovery triggers journal entries. |
 | `Campfires.ts` | `Campfires` | Places 5 campfire rings with point lights and additive ember particles. Wind-affected particle sim. |
 | `Landmarks.ts` | `Landmarks` | Places a ruined castle on the mega-mountain. Stone/iron geometry, slope-optimized placement. |
-| `WalkerMech.ts` | `WalkerTier`, `WalkerMech` | Procedural quadruped Walker (Scout/Assault): layered hull (belly, cabin, glacis, skirts, bustle, strips, rivets), segmented roof deck, turret ring + mantlet + barrel/muzzle, legs with knee shroud, strut, heel/toe foot; `update` reserved. |
+| `WalkerMech.ts` | `WalkerTier`, `WalkerMech`, `WalkerLimbs`, `LegLimb`, `animateWalker` | Spider-tank quadruped Walker (Scout/Assault): ellipsoid dome hull, belly plate, armor collar, panel lines, bustle; sensor head (block, visor slit, sensor bumps) in rotatable Group; side-mounted weapon pylons; 4 legs as nested Group chains (hip ball → upper + panel + knee shroud → lower + panel + ankle → foot heel + 3 splayed toes). `animateWalker()` drives idle (hull bob, head nod, leg micro-settle, weapon float) and diagonal-trot walk (FL+RR / FR+RL pairs, knee lift, hull roll, head counter-motion). |
 | `WalkerMechs.ts` | `WalkerMechs` | Spawns dormant Walkers with seeded biome rules: Scouts in `grassy_plains` (one near player spawn), Assaults in forest/mountains biased near ruin POIs; `walkers` list for future interaction. |
 | `noise.ts` | `makeNoise2D`, `fbm2`, `ridge2` | Deterministic simplex noise wrapper, FBM summation, ridge transform |
 
