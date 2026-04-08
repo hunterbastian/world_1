@@ -89,7 +89,7 @@ export class Terrain {
     const index = zi * (this.segments + 1) + xi
     const b = this.biomeField[index] ?? 0
     if (b === biomeIndex('snowy_mountains')) return 'snowy_mountains'
-    if (b === biomeIndex('autumn_forest')) return 'autumn_forest'
+    if (b === biomeIndex('deep_forest')) return 'deep_forest'
     return 'grassy_plains'
   }
 
@@ -106,7 +106,6 @@ export class Terrain {
   }
 
   findFlatSpawn(seed = 1337) {
-    // Pick a mostly-flat location (prefer plains/forest) above sea level.
     const half = this.size * 0.5
     let s = seed >>> 0
     const rand = () => {
@@ -120,38 +119,65 @@ export class Terrain {
     let bestZ = 0
     let bestScore = -Infinity
 
-    const attempts = 260
-    for (let i = 0; i < attempts; i++) {
-      // Bias toward center so spawn isn't on coast.
-      const r = Math.sqrt(rand()) * (half * 0.55)
-      const a = rand() * Math.PI * 2
-      const x = Math.cos(a) * r
-      const z = Math.sin(a) * r
+    const neighborDist = 15
 
-      const y = this.heightAtXZ(x, z)
-      if (y < this.seaLevel + 1.5) continue
+    for (let pass = 0; pass < 2; pass++) {
+      const strict = pass === 0
+      const attempts = strict ? 600 : 400
+      const maxSlope = strict ? 0.15 : 0.30
 
-      const biome = this.biomeAtXZ(x, z)
-      if (biome === 'snowy_mountains') continue
+      for (let i = 0; i < attempts; i++) {
+        const r = Math.sqrt(rand()) * (half * (strict ? 0.40 : 0.55))
+        const a = rand() * Math.PI * 2
+        const x = Math.cos(a) * r
+        const z = Math.sin(a) * r
 
-      const slope = this.slopeAtXZ(x, z)
-      // Never spawn on steep ground (avoids immediate movement dead-zones on noisy heightfields).
-      if (slope > 0.22) continue
+        const y = this.heightAtXZ(x, z)
+        if (y < this.seaLevel + 2.0) continue
 
-      // Lower slope is better; moderate elevation preferred.
-      const flatScore = 1 / (0.12 + slope)
-      const elevScore = 1 - Math.abs(y - 6) / 18
-      const biomeScore = biome === 'grassy_plains' ? 1.0 : 0.85
-      const score = flatScore * 2.4 + elevScore * 0.6 + biomeScore * 0.35
+        const biome = this.biomeAtXZ(x, z)
+        if (strict && biome !== 'grassy_plains') continue
+        if (!strict && biome === 'snowy_mountains') continue
 
-      if (score > bestScore) {
-        bestScore = score
-        bestX = x
-        bestZ = z
+        const slope = this.slopeAtXZ(x, z)
+        if (slope > maxSlope) continue
+
+        let neighborOk = true
+        let neighborSlopeSum = 0
+        for (let n = 0; n < 8; n++) {
+          const na = (n / 8) * Math.PI * 2
+          const nx = x + Math.cos(na) * neighborDist
+          const nz = z + Math.sin(na) * neighborDist
+          const nb = this.biomeAtXZ(nx, nz)
+          const ns = this.slopeAtXZ(nx, nz)
+          neighborSlopeSum += ns
+          if (nb === 'snowy_mountains' || ns > (strict ? 0.25 : 0.40)) {
+            neighborOk = false
+            break
+          }
+        }
+        if (!neighborOk) continue
+
+        const avgNeighborSlope = neighborSlopeSum / 8
+        const flatScore = 1 / (0.05 + slope + avgNeighborSlope * 0.5)
+        const elevScore = 1 - Math.abs(y - 5) / 20
+        const biomeBonus = biome === 'grassy_plains' ? 1.5 : 0
+        const score = flatScore * 3.0 + elevScore * 0.8 + biomeBonus
+
+        if (score > bestScore) {
+          bestScore = score
+          bestX = x
+          bestZ = z
+        }
       }
+
+      if (bestScore > -Infinity) break
     }
 
     const y = this.heightAtXZ(bestX, bestZ)
+    const spawnBiome = this.biomeAtXZ(bestX, bestZ)
+    const spawnSlope = this.slopeAtXZ(bestX, bestZ)
+    console.info(`[spawn] pos=(${bestX.toFixed(0)}, ${y.toFixed(1)}, ${bestZ.toFixed(0)}) biome=${spawnBiome} slope=${spawnSlope.toFixed(3)} score=${bestScore.toFixed(1)}`)
     return new THREE.Vector3(bestX, y, bestZ)
   }
 
@@ -205,7 +231,7 @@ export class Terrain {
       // (Snow stays snow; forest stays forest.)
       const b = this.biomeField[i] ?? 0
       const snow = biomeIndex('snowy_mountains')
-      const forest = biomeIndex('autumn_forest')
+      const forest = biomeIndex('deep_forest')
       if (b !== snow && b !== forest) this.biomeField[i] = biomeIndex('grassy_plains')
     }
 
@@ -274,7 +300,15 @@ export class Terrain {
       const temp = fbm2(tempNoise, (x + half) * tempScale, (z + half) * tempScale, 2, 2, 0.5)
       const region = THREE.MathUtils.smoothstep(temp, -0.2, 0.4)
 
-      let h = rolling + uplift * region + mountains * mountainMask
+      // Grassland basin: suppress mountains near world center so player has a
+      // guaranteed flat starting area. Basin radius ~30% of half-size, smooth falloff.
+      const distFromCenter = Math.hypot(x, z)
+      const basinRadius = half * 0.30
+      const basinFalloff = THREE.MathUtils.smoothstep(distFromCenter, basinRadius * 0.5, basinRadius)
+      const localMountainMask = mountainMask * basinFalloff
+      const localRegion = region * (0.3 + 0.7 * basinFalloff)
+
+      let h = rolling + uplift * localRegion + mountains * localMountainMask
 
       // Mega-mountain uplift: broad recognizable massif + slight ridge detail.
       const dx = x - mmX
@@ -288,7 +322,6 @@ export class Terrain {
         h += mmStrength * falloff * detail
       }
 
-      // Keep coasts readable by gently easing up very low elevations (until oceans are in).
       h = Math.max(h, this.seaLevel - 8)
 
       const forestMask = THREE.MathUtils.smoothstep(
@@ -298,8 +331,8 @@ export class Terrain {
       )
 
       let biome: BiomeId = 'grassy_plains'
-      if (h > snowLine || mountainMask > 0.55) biome = 'snowy_mountains'
-      else if (forestMask > 0.5 && h > this.seaLevel + 1) biome = 'autumn_forest'
+      if ((h > snowLine || localMountainMask > 0.55) && basinFalloff > 0.5) biome = 'snowy_mountains'
+      else if (forestMask > 0.5 && h > this.seaLevel + 1 && basinFalloff > 0.3) biome = 'deep_forest'
 
       this.heightField[i] = h
       this.biomeField[i] = biomeIndex(biome)
@@ -308,14 +341,30 @@ export class Terrain {
 
       const c = new THREE.Color(Biome[biome].baseColor)
 
-      // Slight elevation tint so mountains read even before post-processing.
-      if (biome === 'snowy_mountains') {
+      const detailNoise = fbm2(baseNoise, x * 0.02, z * 0.02, 2, 2, 0.5)
+      const microNoise = fbm2(forestNoise, x * 0.08, z * 0.08, 2, 2, 0.5)
+
+      if (biome === 'grassy_plains') {
+        const warm = new THREE.Color(0x7cc850)
+        const cool = new THREE.Color(0x4a9440)
+        c.lerp(warm, detailNoise * 0.5 + 0.5)
+        c.lerp(cool, THREE.MathUtils.clamp(microNoise * 0.3 + 0.15, 0, 0.4))
+        const elevFade = THREE.MathUtils.clamp((h - 2) / 15, 0, 1)
+        c.lerp(new THREE.Color(0x6aad4e), elevFade * 0.15)
+      } else if (biome === 'deep_forest') {
+        const canopy = new THREE.Color(0x1f5c2d)
+        const moss = new THREE.Color(0x3d7a3a)
+        c.lerp(canopy, THREE.MathUtils.clamp(detailNoise * 0.4 + 0.3, 0, 0.6))
+        c.lerp(moss, THREE.MathUtils.clamp(microNoise * 0.25, 0, 0.3))
+        const shade = THREE.MathUtils.clamp(1 - localMountainMask * 0.3, 0.7, 1)
+        c.multiplyScalar(shade)
+      } else if (biome === 'snowy_mountains') {
         const rock = new THREE.Color(0x6c717a)
         const snowT = THREE.MathUtils.clamp((h - snowLine) / 35, 0, 1)
         c.lerp(rock, 1 - snowT)
+        c.lerp(new THREE.Color(0x8090a0), THREE.MathUtils.clamp(detailNoise * 0.15, 0, 0.2))
       }
 
-      // Debug-friendly: push forest warmer, plains greener.
       color.setXYZ(i, c.r, c.g, c.b)
     }
 

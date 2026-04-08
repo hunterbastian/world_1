@@ -328,11 +328,12 @@ export class Game {
     this.scene.add(this.player.object3d)
 
     this.audio = new AudioSystem({ camera: this.camera, terrain: this.terrain, player: this.player })
-    // Start audio after first interaction (pointer lock click is a good proxy).
-    this.renderer.domElement.addEventListener(
-      'pointerdown',
+    document.addEventListener(
+      'pointerlockchange',
       () => {
-        void this.audio?.start()
+        if (document.pointerLockElement === this.renderer.domElement) {
+          void this.audio?.start()
+        }
       },
       { once: true }
     )

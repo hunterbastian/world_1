@@ -12,13 +12,13 @@ class BiomePaletteEffect extends Effect {
 
       vec3 applyGrade(vec3 col, float biome) {
         // 0 plains, 1 autumn, 2 snow
-        vec3 plainsTint = vec3(0.95, 1.05, 0.92);
-        vec3 autumnTint = vec3(1.08, 0.98, 0.82);
+        vec3 plainsTint = vec3(0.98, 1.08, 0.90);
+        vec3 forestTint = vec3(0.88, 1.04, 0.86);
         vec3 snowTint   = vec3(0.92, 0.98, 1.08);
 
         vec3 tint = plainsTint;
         if (biome > 1.5) tint = snowTint;
-        else if (biome > 0.5) tint = autumnTint;
+        else if (biome > 0.5) tint = forestTint;
 
         // Saturation + contrast push (avoid grey wash)
         float l = dot(col, vec3(0.2126, 0.7152, 0.0722));

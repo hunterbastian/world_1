@@ -37,9 +37,8 @@ export class Player {
   private readonly turnRate = 7.5
   // Climb limit per frame (world units). Safer than slope-at-destination alone — discrete
   // heightfields can report huge local slope and trap the player on “flat” ground.
-  private readonly maxStepUp = 0.48
-  // Optional: still block brutal walls even if a single step sneaks under maxStepUp.
-  private readonly maxClimbSlope = 0.55
+  private readonly maxStepUp = 0.85
+  private readonly maxClimbSlope = 0.78
 
   constructor(opts: PlayerOptions) {
     this.terrain = opts.terrain

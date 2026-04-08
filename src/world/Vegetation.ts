@@ -47,16 +47,16 @@ export class Vegetation {
 
     const forestTrees = this.makeTreeInstanced({
       kind: 'deciduous',
-      colorA: new THREE.Color(0x8a6b22),
-      colorB: new THREE.Color(0x2e6a38),
-      trunk: new THREE.Color(0x4a3425),
+      colorA: new THREE.Color(0x4a9e3f),
+      colorB: new THREE.Color(0x2d7a35),
+      trunk: new THREE.Color(0x5a3d28),
       count: 900,
     })
     const pineTrees = this.makeTreeInstanced({
       kind: 'pine',
-      colorA: new THREE.Color(0x335c3d),
-      colorB: new THREE.Color(0x1f3c2a),
-      trunk: new THREE.Color(0x3f2b1d),
+      colorA: new THREE.Color(0x2a5e35),
+      colorB: new THREE.Color(0x1a4528),
+      trunk: new THREE.Color(0x4a3220),
       count: 260,
     })
 

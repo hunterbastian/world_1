@@ -67,8 +67,8 @@ export class WorldMap {
         const biome = this.terrain.biomeAtXZ(wx, wz)
         const h = this.terrain.heightAtXZ(wx, wz)
 
-        let c = new THREE.Color(0x2f7a46) // plains
-        if (biome === 'autumn_forest') c = new THREE.Color(0xb06a2b)
+        let c = new THREE.Color(0x5da847) // plains
+        if (biome === 'deep_forest') c = new THREE.Color(0x2a6b38)
         if (biome === 'snowy_mountains') c = new THREE.Color(0xe7eef6)
 
         // Add subtle height shading for readability

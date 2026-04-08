@@ -100,6 +100,8 @@ export class JournalUI {
     this.open = open
     this.root.style.opacity = open ? '1' : '0'
     this.root.style.pointerEvents = open ? 'auto' : 'none'
+    this.panel.style.pointerEvents = open ? 'auto' : 'none'
+    this.root.style.visibility = open ? 'visible' : 'hidden'
   }
 
   addEntry(e: JournalEntry) {

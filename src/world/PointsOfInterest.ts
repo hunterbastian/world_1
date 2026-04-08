@@ -130,7 +130,7 @@ export class PointsOfInterest {
       // Simple heuristic scoring per POI type.
       let score = -Math.abs(y) * 0.05
       if (type === 'shrine') score += biome === 'snowy_mountains' ? 2.0 : 0.2
-      if (type === 'camp') score += biome === 'autumn_forest' ? 1.4 : 0.6
+      if (type === 'camp') score += biome === 'deep_forest' ? 1.4 : 0.6
       if (type === 'ruin') score += biome !== 'snowy_mountains' ? 1.1 : 0.1
 
       // Prefer not too close to sea.

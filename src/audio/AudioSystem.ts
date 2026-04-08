@@ -111,7 +111,7 @@ export class AudioSystem {
 
     // Mix ambient beds.
     const windAmt = THREE.MathUtils.clamp((y - 18) / 35, 0, 1)
-    const birdsAmt = biome === 'autumn_forest' ? 1 : 0.2
+    const birdsAmt = biome === 'deep_forest' ? 1 : 0.2
 
     this.ambientWind.setVolume(0.02 + windAmt * 0.09)
     this.ambientBirds.setVolume(0.01 + birdsAmt * 0.05)
@@ -125,7 +125,7 @@ export class AudioSystem {
     this.footstep.setBuffer(buf)
 
     // Biome “feel” via simple volume shaping.
-    const vol = biome === 'snowy_mountains' ? 0.28 : biome === 'autumn_forest' ? 0.45 : 0.38
+    const vol = biome === 'snowy_mountains' ? 0.28 : biome === 'deep_forest' ? 0.45 : 0.38
     this.footstep.setVolume(vol)
     this.footstep.play()
   }

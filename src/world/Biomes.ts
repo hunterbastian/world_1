@@ -1,6 +1,6 @@
-export type BiomeId = 'grassy_plains' | 'autumn_forest' | 'snowy_mountains'
+export type BiomeId = 'grassy_plains' | 'deep_forest' | 'snowy_mountains'
 
-export const BiomeOrder: readonly BiomeId[] = ['grassy_plains', 'autumn_forest', 'snowy_mountains'] as const
+export const BiomeOrder: readonly BiomeId[] = ['grassy_plains', 'deep_forest', 'snowy_mountains'] as const
 
 export function biomeIndex(biome: BiomeId): number {
   return BiomeOrder.indexOf(biome)
@@ -18,12 +18,12 @@ export type BiomeParams = {
 
 export const Biome: Record<BiomeId, BiomeParams> = {
   grassy_plains: {
-    baseColor: 0x2f7a46,
-    treeDensity: 0.08,
+    baseColor: 0x5da847,
+    treeDensity: 0.06,
   },
-  autumn_forest: {
-    baseColor: 0xb06a2b,
-    treeDensity: 0.35,
+  deep_forest: {
+    baseColor: 0x2e6b3a,
+    treeDensity: 0.40,
   },
   snowy_mountains: {
     baseColor: 0xe7eef6,
