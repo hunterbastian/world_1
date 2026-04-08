@@ -7,6 +7,7 @@ export type InputState = {
   journalToggle: boolean
   interactHeld: boolean
   attackDown: boolean
+  escapePressed: boolean
 }
 
 export class Input {
@@ -18,6 +19,7 @@ export class Input {
   private journalToggle = false
   private interact = false
   private attackDown = false
+  private escapePressed = false
   private _locked = false
 
   constructor(element: HTMLElement) {
@@ -60,12 +62,14 @@ export class Input {
       journalToggle: this.journalToggle,
       interactHeld: this.interact,
       attackDown: this.attackDown,
+      escapePressed: this.escapePressed,
     }
 
     this.mouseDX = 0
     this.mouseDY = 0
     this.journalToggle = false
     this.attackDown = false
+    this.escapePressed = false
     return out
   }
 
@@ -94,14 +98,15 @@ export class Input {
   private onMouseUp = () => {}
 
   private onKeyDown = (e: KeyboardEvent) => {
+    if (e.code === 'Escape') {
+      this.escapePressed = true
+      if (document.pointerLockElement === this.el) document.exitPointerLock()
+      return
+    }
     if (!this._locked) return
     if (e.code === 'Tab') {
       e.preventDefault()
       this.journalToggle = true
-      return
-    }
-    if (e.code === 'Escape') {
-      e.preventDefault()
       return
     }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.sprint = true

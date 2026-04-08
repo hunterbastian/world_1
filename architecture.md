@@ -7,21 +7,24 @@ One-liner per file and exported function/class.
 | File | Purpose |
 |------|---------|
 | `index.html` | HTML shell, mounts `#app` div, loads `main.ts` |
+| `viewer.html` | Dev model viewer: UI overlay + loads `src/viewer/modelViewer.ts` |
+| `vite.config.ts` | Vite multi-page build: `index.html` + `viewer.html` inputs |
 | `src/main.ts` | Creates canvas, instantiates `Game`, calls `start()` |
+| `src/viewer/modelViewer.ts` | Orbit studio for `WalkerMech`: key/fill/rim + shadows, studio/outdoor, exposure, bottom toolbar, WASD+Q/E roam, R/G/Shift; dispose on swap |
 
 ## game/
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `Game.ts` | `Game` | Main orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`. Runs the game loop in `tick()`. Handles rest mechanic, compass, spawn intro, debug keys (F3). |
+| `Game.ts` | `Game` | Main orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`. Runs the game loop in `tick()`. Handles rest mechanic, compass, spawn intro, Walker idle updates, pause state, debug keys (F3). |
 | `Game.ts` | `.start()` | Begins the render loop |
 | `Game.ts` | `.stop()` | Cancels render loop, disposes input |
-| `Game.ts` | `.seedScene()` | Instantiates terrain, water, vegetation, sky, clouds, wind, player, camera rig, POIs, campfires, landmarks, journal, HUD, audio, post-fx |
-| `Player.ts` | `Player` | Player controller. WASD movement, sprint/stamina, slope gating, step events, optional knight GLTF model with cape flutter shader. |
+| `Game.ts` | `.seedScene()` | Instantiates terrain, water, vegetation, sky, clouds, wind, player, camera rig, POIs, campfires, landmarks, dormant Walkers, journal, HUD, world map, pause menu, audio, post-fx |
+| `Player.ts` | `Player` | Player controller. WASD movement, sprint/stamina, slope gating, step events, procedural knight model with wind-driven cape flutter shader. |
+| `Player.ts` | `buildKnightModel()` | Builds a Dark Souls-style knight from Three.js primitives: helmet, torso, pauldrons, greaves, cape, sword on back |
 | `Player.ts` | `.update(dt, input, cameraYaw)` | Per-frame movement: accel/decel, terrain clamping, slope rejection, facing, step phase |
 | `Player.ts` | `.setWind(dirXZ)` | Updates cape flutter wind direction |
-| `Player.ts` | `.tryLoadKnight()` | Async GLTF load of `/models/knight.glb`, falls back to capsule |
-| `Input.ts` | `Input`, `InputState` | Keyboard + mouse input. WASD, Shift sprint, E interact, Tab journal, pointer lock orbit. `consume()` returns and resets deltas. |
+| `Input.ts` | `Input`, `InputState` | Keyboard + mouse input. WASD, Shift sprint, E interact, Tab journal, Escape pause, pointer lock orbit. `consume()` returns and resets deltas. |
 | `CameraRig.ts` | `CameraRig` | Third-person orbit camera with critically damped spring, footstep shake, cinematic zoom. |
 | `CameraRig.ts` | `.addOrbitDelta(dx, dy)` | Applies mouse orbit |
 | `CameraRig.ts` | `.update(dt, targetPos)` | Springs camera toward desired offset from target |
@@ -47,6 +50,8 @@ One-liner per file and exported function/class.
 | `PointsOfInterest.ts` | `PointsOfInterest`, `POI` | Spawns ruin/shrine/camp POIs with discovery orbs. Proximity-based discovery triggers journal entries. |
 | `Campfires.ts` | `Campfires` | Places 5 campfire rings with point lights and additive ember particles. Wind-affected particle sim. |
 | `Landmarks.ts` | `Landmarks` | Places a ruined castle on the mega-mountain. Stone/iron geometry, slope-optimized placement. |
+| `WalkerMech.ts` | `WalkerTier`, `WalkerMech` | Procedural quadruped Walker (Scout/Assault): hull, armor, 4 legs, turret; `update` reserved for future animation. |
+| `WalkerMechs.ts` | `WalkerMechs` | Spawns dormant Walkers with seeded biome rules: Scouts in `grassy_plains` (one near player spawn), Assaults in forest/mountains biased near ruin POIs; `walkers` list for future interaction. |
 | `noise.ts` | `makeNoise2D`, `fbm2`, `ridge2` | Deterministic simplex noise wrapper, FBM summation, ridge transform |
 
 ## render/
@@ -67,6 +72,7 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `HUD.ts` | `HUD` | Fixed overlay: compass arrow (top-center), stamina bar (bottom-left), interaction prompt (bottom-center) |
-| `Journal.ts` | `JournalUI` | Tab-toggled overlay: two-column layout with map slot (left) and scrollable lore entries (right) |
-| `WorldMap.ts` | `WorldMap` | 2D canvas minimap with biome coloring and fog-of-war reveal by player proximity |
+| `HUD.ts` | `HUD` | Fixed overlay: health/stamina/XP bar stack (top-left), compass rose (top-center), crosshair (center, piloting only), Walker health bar (piloting only), interaction prompt (bottom-center). Dark Souls minimal style. |
+| `Journal.ts` | `JournalUI` | Tab-toggled overlay: Warcraft/Witcher 3 ornate panel. Two-column layout with parchment map slot (left) and scrollable lore entries with gold-accent cards (right). |
+| `WorldMap.ts` | `WorldMap`, `MapMarkerData` | 2D canvas parchment map. Layered rendering: base biome colors + water + contour lines, parchment fog-of-war with soft feathered edges, player arrow, POI markers (camp/ruin/shrine), Walker markers, compass rose, vignette border. |
+| `PauseMenu.ts` | `PauseMenu`, `CharacterStats`, `WalkerStats`, `InventoryItem` | ESC-toggled pause overlay: Warcraft-style gold-trimmed panel with character stats, Walker stats (if active), inventory list, Resume/Quit buttons. |

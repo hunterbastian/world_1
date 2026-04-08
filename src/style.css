@@ -9,7 +9,7 @@ body,
 body {
   margin: 0;
   overflow: hidden;
-  background: #0b0f16;
+  background: #080a0e;
 }
 
 #app {
@@ -21,73 +21,166 @@ body {
   touch-action: none;
 }
 
-/* Warcraft-inspired UI theme */
+/* ── Frutiger Aero / Mirror's Edge UI ── */
+
 :root {
-  --wc-text: rgba(255, 248, 230, 0.92);
-  --wc-subtext: rgba(255, 248, 230, 0.68);
-  --wc-frame: rgba(20, 18, 16, 0.88);
-  --wc-frame-2: rgba(10, 9, 8, 0.82);
-  --wc-border: rgba(255, 210, 120, 0.42);
-  --wc-border-2: rgba(255, 255, 255, 0.08);
-  --wc-gold: rgba(255, 208, 120, 0.95);
-  --wc-parchment: rgba(238, 223, 187, 0.92);
-  --wc-parchment-ink: rgba(40, 24, 12, 0.9);
-  --wc-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  /* Surface layers (frosted dark glass) */
+  --ui-glass: rgba(10, 14, 20, 0.45);
+  --ui-glass-light: rgba(255, 255, 255, 0.05);
+  --ui-glass-border: rgba(255, 255, 255, 0.08);
+
+  /* Accent (Mirror's Edge runner red) */
+  --ui-accent: #e6364a;
+  --ui-accent-dim: rgba(230, 54, 74, 0.35);
+  --ui-accent-glow: rgba(230, 54, 74, 0.10);
+
+  /* Text */
+  --ui-text: rgba(255, 255, 255, 0.90);
+  --ui-text-mid: rgba(255, 255, 255, 0.55);
+  --ui-text-dim: rgba(255, 255, 255, 0.30);
+
+  /* Bar colors */
+  --ui-health-a: #c03040;
+  --ui-health-b: #e04858;
+  --ui-stamina-a: rgba(255, 255, 255, 0.75);
+  --ui-stamina-b: rgba(255, 255, 255, 0.90);
+  --ui-xp-a: #3088cc;
+  --ui-xp-b: #50a8e8;
+  --ui-walker-a: #28a880;
+  --ui-walker-b: #40c898;
+
+  /* Shadow */
+  --ui-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* Font */
+  --ui-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
-.wc-frame {
-  background: linear-gradient(180deg, var(--wc-frame), var(--wc-frame-2));
-  border: 1px solid var(--wc-border-2);
-  box-shadow: var(--wc-shadow);
+/* ── Frosted glass panel ── */
+.ui-panel {
+  background: var(--ui-glass);
+  border: 1px solid var(--ui-glass-border);
+  border-radius: 12px;
+  box-shadow: var(--ui-shadow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
-.wc-gold-trim {
-  position: relative;
-  border: 1px solid var(--wc-border);
-}
-.wc-gold-trim::before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  pointer-events: none;
+/* ── Scrim (overlay backdrop) ── */
+.ui-scrim {
+  background: rgba(0, 0, 0, 0.50);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-.wc-parchment {
-  background: radial-gradient(
-      120% 100% at 50% 0%,
-      rgba(255, 255, 255, 0.10),
-      rgba(0, 0, 0, 0.0) 55%
-    ),
-    linear-gradient(180deg, rgba(238, 223, 187, 0.94), rgba(218, 197, 150, 0.92));
-  border: 1px solid rgba(80, 48, 18, 0.22);
-  color: var(--wc-parchment-ink);
-}
-
-.wc-title {
-  font: 800 13px/1.1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: var(--wc-text);
-}
-
-.wc-hint {
-  font: 650 11px/1.1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: var(--wc-subtext);
-}
-
-.wc-scrim {
-  background: radial-gradient(120% 120% at 50% 20%, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.72));
-  backdrop-filter: blur(6px);
-}
-
-.wc-chip {
+/* ── Chip (HUD elements) ── */
+.ui-chip {
   border-radius: 6px;
-  padding: 7px 12px;
-  background: rgba(10, 12, 18, 0.55);
-  border: 1px solid rgba(255, 210, 120, 0.22);
-  color: var(--wc-text);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+  padding: 5px 10px;
+  background: rgba(10, 14, 20, 0.50);
+  border: 1px solid var(--ui-glass-border);
+  color: var(--ui-text);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
+/* ── Section title ── */
+.ui-title {
+  font: 600 11px/1 var(--ui-font);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--ui-text-mid);
+}
+
+/* ── Hint text ── */
+.ui-hint {
+  font: 400 11px/1 var(--ui-font);
+  color: var(--ui-text-dim);
+}
+
+/* ── Divider ── */
+.ui-divider {
+  height: 1px;
+  background: var(--ui-glass-border);
+  margin: 14px 0;
+}
+
+/* ── Stat row ── */
+.ui-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 5px 0;
+}
+.ui-stat-row .ui-stat-label {
+  font: 400 12px/1 var(--ui-font);
+  color: var(--ui-text-mid);
+}
+.ui-stat-row .ui-stat-value {
+  font: 500 13px/1 var(--ui-font);
+  color: var(--ui-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Button ── */
+.ui-btn {
+  font: 500 12px/1 var(--ui-font);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ui-text);
+  background: transparent;
+  border: 1px solid var(--ui-glass-border);
+  border-radius: 6px;
+  padding: 10px 28px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+.ui-btn:hover {
+  border-color: var(--ui-accent);
+  color: #fff;
+  background: var(--ui-accent-glow);
+}
+.ui-btn:active {
+  background: var(--ui-accent-dim);
+}
+
+/* ── HUD bar ── */
+.ui-bar {
+  width: 180px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+.ui-bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 2px;
+  transform-origin: left center;
+  transition: transform 80ms linear;
+}
+
+@keyframes healthPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.ui-bar-fill--low {
+  animation: healthPulse 1s ease-in-out infinite;
+}
+
+/* ── Custom scrollbar ── */
+.ui-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.ui-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ui-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
+.ui-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}

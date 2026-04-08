@@ -19,6 +19,8 @@ import { PerformanceManager } from './PerformanceManager'
 import type { QualityTier } from './PerformanceManager'
 import { CloudDome } from '../world/CloudDome'
 import { Landmarks } from '../world/Landmarks'
+import { WalkerMechs } from '../world/WalkerMechs'
+import { PauseMenu } from '../ui/PauseMenu'
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
@@ -44,9 +46,12 @@ export class Game {
   private worldMap: WorldMap | null = null
   private cloudDome: CloudDome | null = null
   private landmarks: Landmarks | null = null
+  private walkers: WalkerMechs | null = null
+  private pauseMenu: PauseMenu | null = null
   private readonly perf = new PerformanceManager()
   private qualityTier: QualityTier = 'high'
   private perfDebug = false
+  private paused = false
   private compass = {
     t: 0,
     angle: 0,
@@ -126,17 +131,28 @@ export class Game {
     const windDir = this.wind?.dirXZ ?? new THREE.Vector2(1, 0)
 
     const input = this.input?.consume()
-    if (input && this.player && this.cameraRig) {
+
+    // Pause toggle on ESC
+    if (input?.escapePressed && this.pauseMenu) {
+      this.paused = !this.paused
+      this.pauseMenu.setOpen(this.paused)
+      if (this.paused) {
+        if (document.pointerLockElement === this.renderer.domElement) {
+          document.exitPointerLock()
+        }
+      }
+    }
+
+    if (!this.paused && input && this.player && this.cameraRig) {
       this.cameraRig.addOrbitDelta(input.mouseDeltaX, input.mouseDeltaY)
       this.player.setWind(windDir)
       if (!this.rest.active) this.player.update(dt, input, this.cameraRig.getYaw())
 
-      // Spawn intro: start zoomed out, then cinematically dolly in.
       if (this.spawnIntro.active) {
         this.spawnIntro.t += dt
         const dur = 2.6
         const t = Math.min(1, this.spawnIntro.t / dur)
-        const ease = 1 - Math.pow(1 - t, 3) // easeOutCubic
+        const ease = 1 - Math.pow(1 - t, 3)
         const dist = THREE.MathUtils.lerp(14.0, 7.5, ease)
         const height = THREE.MathUtils.lerp(3.6, 2.0, ease)
         this.cameraRig.setDesired(dist, height)
@@ -150,16 +166,18 @@ export class Game {
       if (input.journalToggle) this.journal?.toggle()
     }
 
-    this.water?.update(dt, windDir)
-    this.vegetation?.update(dt, windDir)
-    if (this.poi && this.player) this.poi.update(this.player.position)
-    this.campfires?.update(dt, windDir)
-    this.audio?.update()
+    if (!this.paused) {
+      this.water?.update(dt, windDir)
+      this.vegetation?.update(dt, windDir)
+      if (this.poi && this.player) this.poi.update(this.player.position)
+      this.campfires?.update(dt, windDir)
+      this.walkers?.update(dt)
+      this.audio?.update()
+    }
 
     if (this.hud && this.player) {
       this.hud.setStamina(this.player.stamina)
 
-      // Throttle compass math (and nearest-POI scan) to reduce CPU churn.
       this.compass.t += dt
       if (this.compass.t >= 1 / 12) {
         this.compass.t = 0
@@ -169,7 +187,6 @@ export class Game {
           to.y = 0
           to.normalize()
 
-          // Angle relative to camera forward.
           const fwd = new THREE.Vector3()
           this.camera.getWorldDirection(fwd)
           fwd.y = 0
@@ -185,14 +202,16 @@ export class Game {
       if (this.compass.has) this.hud.setCompassAngle(this.compass.angle)
     }
 
-    // Reveal fog-of-war around player constantly.
-    if (this.worldMap && this.player) {
+    if (this.worldMap && this.player && this.cameraRig) {
       this.worldMap.revealAt(this.player.position, 18)
+      this.worldMap.updateMarkers(dt, {
+        player: { position: this.player.position, yaw: this.cameraRig.getYaw() },
+        pois: this.poi?.pois ?? [],
+        walkers: this.walkers?.walkers.map((w) => ({ position: w.object3d.position })) ?? [],
+      })
     }
 
-    // Rest mechanic at camps: hold E near a camp POI to trigger a time-lapse.
-    if (this.sky && this.hud && this.poi && this.player) {
-      // Rest at any camp, discovered or not: find closest camp POI within radius.
+    if (!this.paused && this.sky && this.hud && this.poi && this.player) {
       let closestCampDist = Infinity
       for (const p of this.poi.pois) {
         if (!p.restPoint) continue
@@ -217,11 +236,9 @@ export class Game {
           this.rest.hold = 0
         }
       } else {
-        this.hud.setPrompt('Resting…')
+        this.hud.setPrompt('Resting\u2026')
         this.rest.t += dt
-        // Time-lapse: accelerate the sky.
         this.sky.timeScale = 24
-        // Refill stamina slowly during rest.
         this.player.stamina = Math.min(1, this.player.stamina + dt * 0.6)
         if (this.rest.t > 2.8) {
           this.rest.active = false
@@ -311,21 +328,45 @@ export class Game {
       this.journal?.addEntry({ id: poi.id, title: poi.loreTitle, body: poi.loreBody })
     })
 
-    this.worldMap = new WorldMap({ terrain: this.terrain, size: 220 })
+    this.worldMap = new WorldMap({ terrain: this.terrain, size: 220, seaLevel: -2 })
     this.worldMap.canvas.style.width = '100%'
     this.worldMap.canvas.style.height = 'auto'
     this.worldMap.canvas.style.borderRadius = '4px'
-    this.worldMap.canvas.style.imageRendering = 'pixelated'
     this.journal.setMapElement(this.worldMap.canvas)
 
     this.hud = new HUD()
     document.body.appendChild(this.hud.root)
+    this.hud.setHealth(1.0)
+    this.hud.setXP(0)
 
+    this.pauseMenu = new PauseMenu()
+    document.body.appendChild(this.pauseMenu.root)
+    this.pauseMenu.onResume = () => {
+      this.paused = false
+      this.pauseMenu?.setOpen(false)
+      const result = this.renderer.domElement.requestPointerLock()
+      if (result && typeof (result as any).catch === 'function') {
+        ;(result as any).catch(() => {})
+      }
+    }
+    this.pauseMenu.onQuit = () => {
+      window.location.reload()
+    }
+
+    const spawn = this.terrain.findFlatSpawn(1337)
     this.player = new Player({
       terrain: this.terrain,
-      start: this.terrain.findFlatSpawn(1337),
+      start: spawn.clone(),
     })
     this.scene.add(this.player.object3d)
+
+    this.walkers = new WalkerMechs({
+      terrain: this.terrain,
+      seed: 'world-seed-001',
+      playerSpawn: spawn,
+      pois: this.poi.pois,
+    })
+    this.scene.add(this.walkers.object3d)
 
     this.audio = new AudioSystem({ camera: this.camera, terrain: this.terrain, player: this.player })
     document.addEventListener(
@@ -343,6 +384,7 @@ export class Game {
       height: 2.0,
       yaw: 0,
       pitch: 0.25,
+      terrain: this.terrain!,
     })
     this.player.onStep(({ intensity }) => this.cameraRig?.impulseFootstep(intensity))
   }

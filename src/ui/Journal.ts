@@ -12,81 +12,109 @@ export class JournalUI {
   private entries: JournalEntry[] = []
   private open = false
 
+  private static readonly F =
+    'system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
+
   constructor() {
+    const f = JournalUI.F
+
     this.root = document.createElement('div')
     this.root.id = 'journal'
-    this.root.style.position = 'fixed'
-    this.root.style.inset = '0'
-    this.root.style.pointerEvents = 'none'
-    this.root.style.display = 'grid'
-    this.root.style.placeItems = 'center'
-    this.root.style.opacity = '0'
-    this.root.style.transition = 'opacity 160ms ease'
+    Object.assign(this.root.style, {
+      position: 'fixed',
+      inset: '0',
+      pointerEvents: 'none',
+      display: 'grid',
+      placeItems: 'center',
+      opacity: '0',
+      visibility: 'hidden',
+      transition: 'opacity 160ms ease',
+      zIndex: '20',
+    })
 
     const scrim = document.createElement('div')
-    scrim.style.position = 'absolute'
-    scrim.style.inset = '0'
-    scrim.className = 'wc-scrim'
+    scrim.className = 'ui-scrim'
+    Object.assign(scrim.style, { position: 'absolute', inset: '0' })
     this.root.appendChild(scrim)
 
     this.panel = document.createElement('div')
-    this.panel.style.position = 'relative'
-    this.panel.style.width = 'min(760px, calc(100vw - 32px))'
-    this.panel.style.maxHeight = 'min(560px, calc(100vh - 32px))'
-    this.panel.style.borderRadius = '8px'
-    this.panel.className = 'wc-frame wc-gold-trim'
-    this.panel.style.overflow = 'hidden'
-    this.panel.style.pointerEvents = 'auto'
+    this.panel.className = 'ui-panel'
+    Object.assign(this.panel.style, {
+      position: 'relative',
+      width: 'min(720px, calc(100vw - 48px))',
+      maxHeight: 'min(520px, calc(100vh - 48px))',
+      overflow: 'hidden',
+      pointerEvents: 'auto',
+    })
     this.root.appendChild(this.panel)
 
+    // Header
     const header = document.createElement('div')
-    header.style.padding = '16px 18px'
-    header.style.display = 'flex'
-    header.style.alignItems = 'baseline'
-    header.style.justifyContent = 'space-between'
-    header.style.gap = '12px'
-    header.style.borderBottom = '1px solid rgba(255, 210, 120, 0.18)'
+    Object.assign(header.style, {
+      padding: '20px 24px 0',
+      display: 'flex',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+    })
     this.panel.appendChild(header)
 
     const title = document.createElement('div')
+    title.className = 'ui-title'
     title.textContent = 'Journal'
-    title.className = 'wc-title'
     header.appendChild(title)
 
     const hint = document.createElement('div')
+    hint.className = 'ui-hint'
     hint.textContent = 'Tab to close'
-    hint.className = 'wc-hint'
     header.appendChild(hint)
 
+    const divider = document.createElement('div')
+    divider.className = 'ui-divider'
+    divider.style.margin = '14px 24px'
+    this.panel.appendChild(divider)
+
+    // Body
     const body = document.createElement('div')
-    body.style.display = 'grid'
-    body.style.gridTemplateColumns = '260px 1fr'
-    body.style.gap = '12px'
-    body.style.padding = '14px 18px 18px'
-    body.style.maxHeight = 'calc(560px - 50px)'
+    Object.assign(body.style, {
+      display: 'grid',
+      gridTemplateColumns: '220px 1fr',
+      gap: '16px',
+      padding: '0 24px 24px',
+      maxHeight: 'calc(520px - 68px)',
+    })
     this.panel.appendChild(body)
 
     // Map column
     this.mapSlot = document.createElement('div')
-    this.mapSlot.style.borderRadius = '6px'
-    this.mapSlot.className = 'wc-parchment'
-    this.mapSlot.style.padding = '10px'
-    this.mapSlot.style.display = 'grid'
-    this.mapSlot.style.gap = '8px'
+    Object.assign(this.mapSlot.style, {
+      borderRadius: '8px',
+      background: 'rgba(255,255,255,0.03)',
+      border: '1px solid rgba(255,255,255,0.06)',
+      padding: '12px',
+      display: 'grid',
+      gap: '8px',
+      alignContent: 'start',
+    })
     body.appendChild(this.mapSlot)
 
     const mapTitle = document.createElement('div')
+    Object.assign(mapTitle.style, {
+      font: `400 9px/1 ${f}`,
+      letterSpacing: '1.4px',
+      textTransform: 'uppercase',
+      color: 'rgba(255,255,255,0.25)',
+    })
     mapTitle.textContent = 'Map'
-    mapTitle.style.font = '900 11px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
-    mapTitle.style.letterSpacing = '0.6px'
-    mapTitle.style.textTransform = 'uppercase'
-    mapTitle.style.color = 'rgba(40, 24, 12, 0.78)'
     this.mapSlot.appendChild(mapTitle)
 
     // List column
     this.list = document.createElement('div')
-    this.list.style.overflow = 'auto'
-    this.list.style.paddingRight = '6px'
+    this.list.className = 'ui-scroll'
+    Object.assign(this.list.style, {
+      overflow: 'auto',
+      paddingRight: '4px',
+      maxHeight: 'calc(520px - 68px)',
+    })
     body.appendChild(this.list)
 
     this.render()
@@ -111,49 +139,56 @@ export class JournalUI {
   }
 
   setMapElement(el: HTMLElement) {
-    // Keep title; replace the rest.
     const children = Array.from(this.mapSlot.children)
     for (let i = 1; i < children.length; i++) children[i]!.remove()
     this.mapSlot.appendChild(el)
   }
 
   private render() {
+    const f = JournalUI.F
     this.list.replaceChildren()
 
     if (this.entries.length === 0) {
       const empty = document.createElement('div')
-      empty.textContent = 'No discoveries yet. Follow the glow.'
-      empty.style.padding = '16px 0'
-      empty.style.color = 'rgba(255, 248, 230, 0.72)'
-      empty.style.font = '600 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
+      empty.textContent = 'No discoveries yet.'
+      Object.assign(empty.style, {
+        padding: '20px 0',
+        color: 'rgba(255,255,255,0.22)',
+        font: `300 13px/1.5 ${f}`,
+        fontStyle: 'italic',
+      })
       this.list.appendChild(empty)
       return
     }
 
     for (const e of this.entries) {
       const card = document.createElement('div')
-      card.style.padding = '12px 12px'
-      card.style.borderRadius = '6px'
-      card.style.background = 'rgba(0, 0, 0, 0.18)'
-      card.style.border = '1px solid rgba(255, 210, 120, 0.16)'
-      card.style.marginBottom = '10px'
+      Object.assign(card.style, {
+        padding: '12px 14px',
+        borderRadius: '6px',
+        background: 'rgba(255,255,255,0.03)',
+        borderLeft: '2px solid rgba(230, 54, 74, 0.30)',
+        marginBottom: '8px',
+      })
 
       const t = document.createElement('div')
       t.textContent = e.title
-      t.style.font = '800 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
-      t.style.letterSpacing = '0.2px'
-      t.style.color = 'rgba(255, 248, 230, 0.92)'
+      Object.assign(t.style, {
+        font: `500 13px/1.2 ${f}`,
+        color: 'rgba(255,255,255,0.85)',
+      })
       card.appendChild(t)
 
       const b = document.createElement('div')
       b.textContent = e.body
-      b.style.marginTop = '6px'
-      b.style.font = '600 13px/1.55 system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
-      b.style.color = 'rgba(255, 248, 230, 0.74)'
+      Object.assign(b.style, {
+        marginTop: '6px',
+        font: `300 13px/1.55 ${f}`,
+        color: 'rgba(255,255,255,0.42)',
+      })
       card.appendChild(b)
 
       this.list.appendChild(card)
     }
   }
 }
-

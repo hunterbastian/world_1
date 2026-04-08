@@ -1,15 +1,18 @@
 import * as THREE from 'three'
+import type { Terrain } from '../world/Terrain'
 
 export type CameraRigParams = {
   distance: number
   height: number
   yaw: number
   pitch: number
+  terrain?: Terrain
 }
 
 export class CameraRig {
   private readonly camera: THREE.PerspectiveCamera
   private readonly target = new THREE.Vector3()
+  private readonly terrain: Terrain | null
 
   private yaw: number
   private pitch: number
@@ -19,16 +22,15 @@ export class CameraRig {
   private desiredDistance: number
   private desiredHeight: number
 
-  // Cinematic lag (spring-ish smoothing).
   private pos = new THREE.Vector3()
   private vel = new THREE.Vector3()
 
-  // Footstep shake
   private shakeT = 0
   private shakeAmp = 0
 
   constructor(camera: THREE.PerspectiveCamera, params: CameraRigParams) {
     this.camera = camera
+    this.terrain = params.terrain ?? null
     this.distance = params.distance
     this.height = params.height
     this.desiredDistance = params.distance
@@ -82,6 +84,15 @@ export class CameraRig {
     const accel = x.multiplyScalar(-omega * omega).add(this.vel.clone().multiplyScalar(-2 * omega))
     this.vel.addScaledVector(accel, dt)
     this.pos.addScaledVector(this.vel, dt)
+
+    if (this.terrain) {
+      const groundY = this.terrain.heightAtXZ(this.pos.x, this.pos.z)
+      const minCamY = groundY + 1.2
+      if (this.pos.y < minCamY) {
+        this.pos.y = minCamY
+        if (this.vel.y < 0) this.vel.y = 0
+      }
+    }
 
     // Shake (damped)
     this.shakeT += dt

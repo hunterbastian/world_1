@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>World_1 — Model viewer</title>
+    <style>
+      :root {
+        --bg-page: #070a0f;
+        --bg-panel: rgba(10, 13, 20, 0.92);
+        --border: rgba(255, 255, 255, 0.1);
+        --text: #e8eaef;
+        --muted: rgba(232, 234, 239, 0.52);
+        --accent: #7eb8ff;
+        --accent-dim: rgba(126, 184, 255, 0.18);
+        --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        font-family: var(--font);
+        background: var(--bg-page);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      #ui {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        background: var(--bg-panel);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border-top: 1px solid var(--border);
+        box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
+      }
+
+      #ui .bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+        padding: 8px 10px 6px;
+      }
+
+      #ui .brand {
+        font-size: 10px;
+        font-weight: 650;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        white-space: nowrap;
+        padding-right: 4px;
+      }
+
+      #ui select#asset {
+        flex: 1 1 150px;
+        min-width: min(160px, 38vw);
+        max-width: 260px;
+        padding: 5px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: rgba(6, 8, 14, 0.95);
+        color: var(--text);
+        font-size: 12px;
+        font-family: inherit;
+        cursor: pointer;
+        outline: none;
+      }
+
+      #ui select#asset:hover {
+        border-color: rgba(255, 255, 255, 0.16);
+      }
+
+      #ui select#asset:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-dim);
+      }
+
+      #ui .seg {
+        display: flex;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+      }
+
+      #ui .seg .btn {
+        border: none;
+        border-radius: 0;
+        border-right: 1px solid var(--border);
+      }
+
+      #ui .seg .btn:last-child {
+        border-right: none;
+      }
+
+      #ui .btn {
+        padding: 5px 9px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        font-size: 11px;
+        font-weight: 500;
+        font-family: inherit;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      #ui .btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      #ui .btn[aria-pressed='true'] {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+        color: #cfe4ff;
+      }
+
+      #ui .exposure-inline {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: 1 1 140px;
+        min-width: 100px;
+        max-width: 200px;
+      }
+
+      #ui .exposure-inline label {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      #ui .exposure-inline input[type='range'] {
+        flex: 1;
+        min-width: 0;
+        accent-color: var(--accent);
+        height: 3px;
+      }
+
+      #ui #exposure-val {
+        font-variant-numeric: tabular-nums;
+        font-size: 10px;
+        color: var(--muted);
+        width: 2rem;
+        text-align: right;
+      }
+
+      #ui .hints {
+        margin: 0;
+        padding: 0 10px 8px;
+        font-size: 10px;
+        line-height: 1.45;
+        color: var(--muted);
+      }
+
+      #ui .hints kbd {
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-size: 9px;
+        padding: 1px 4px;
+        border-radius: 3px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(232, 234, 239, 0.85);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ui">
+      <div class="bar">
+        <span class="brand" title="Isolated asset preview">Viewer</span>
+        <select id="asset" aria-label="Asset to preview">
+          <option value="scout">Walker · Scout — Argos</option>
+          <option value="assault">Walker · Assault — Tyr</option>
+        </select>
+        <div class="seg" role="group" aria-label="Lighting preset">
+          <button type="button" class="btn" id="preset-studio" aria-pressed="true">Studio</button>
+          <button type="button" class="btn" id="preset-outdoor" aria-pressed="false">Outdoor</button>
+        </div>
+        <div class="exposure-inline">
+          <label for="exposure">Exposure</label>
+          <input id="exposure" type="range" min="0.4" max="1.8" step="0.02" value="1.05" aria-label="Tone mapping exposure" />
+          <span id="exposure-val">1.05</span>
+        </div>
+        <button type="button" class="btn" id="toggle-grid" aria-pressed="true" title="Toggle grid (G)">Grid</button>
+        <button type="button" class="btn" id="reset-cam" title="Reset camera (R)">Reset</button>
+      </div>
+      <p class="hints" aria-label="Controls">
+        <kbd>Drag</kbd> orbit · <kbd>Right-drag</kbd> pan · <kbd>Scroll</kbd> zoom · <kbd>WASD</kbd> slide · <kbd>Q</kbd>/<kbd>E</kbd> up/down
+        · <kbd>Shift</kbd> faster · <kbd>R</kbd> reset · <kbd>G</kbd> grid · Knight GLB later
+      </p>
+    </div>
+    <script type="module" src="/src/viewer/modelViewer.ts"></script>
+  </body>
+</html>

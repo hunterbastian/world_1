@@ -9,7 +9,7 @@ export class SkySystem {
   public readonly sunLight: THREE.DirectionalLight
   public readonly sky: Sky
 
-  public timeOfDay = 0.18 // 0..1
+  public timeOfDay = 0.5 // 0..1 (0.5 = noon)
   public readonly sunDirection = new THREE.Vector3(0, 1, 0)
   public dayAmount = 1
   public duskAmount = 0
@@ -39,9 +39,12 @@ export class SkySystem {
     u.mieDirectionalG.value = 0.8
   }
 
+  public freezeTime = true
+
   update(dt: number, renderer: THREE.WebGLRenderer) {
-    // Slow day-night cycle
-    this.timeOfDay = (this.timeOfDay + dt * this.timeScale * (1 / 600)) % 1 // ~10min per day (scaled)
+    if (!this.freezeTime) {
+      this.timeOfDay = (this.timeOfDay + dt * this.timeScale * (1 / 600)) % 1
+    }
 
     const sun = this.computeSunDir(this.timeOfDay)
     this.sunDirection.copy(sun)
