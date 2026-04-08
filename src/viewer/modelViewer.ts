@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { WalkerMech, type WalkerTier } from '../world/WalkerMech'
+import { buildKnightModel, animateKnight, type KnightLimbs } from '../game/KnightModel'
 
 function disposeObject3D(root: THREE.Object3D) {
   const materials = new Set<THREE.Material>()
@@ -159,42 +160,73 @@ const pivot = new THREE.Group()
 pivot.name = 'ViewerPivot'
 scene.add(pivot)
 
+type AssetId = WalkerTier | 'knight'
+
 let current: WalkerMech | null = null
+let knightLimbs: KnightLimbs | null = null
+let knightRoot: THREE.Group | null = null
 let lastFocus = new THREE.Vector3(0, 2.4, 0)
-let currentTier: WalkerTier = 'scout'
+let currentAsset: AssetId = 'knight'
 
 function frameCamera(center: THREE.Vector3) {
   lastFocus.copy(center)
   controls.target.copy(center)
-  const extent = currentTier === 'assault' ? 10 : 7
-  const r = Math.max(6.5, extent + 5)
+  let r: number
+  if (currentAsset === 'knight') {
+    r = 4.5
+  } else {
+    const extent = currentAsset === 'assault' ? 12 : 7
+    r = Math.max(6.5, extent + 5)
+  }
   camera.position.set(center.x + r * 0.72, center.y + r * 0.38, center.z + r * 0.68)
   controls.update()
 }
 
-function setAsset(tier: WalkerTier) {
-  currentTier = tier
+function clearAsset() {
   if (current) {
     pivot.remove(current.object3d)
     disposeObject3D(current.object3d)
     current = null
   }
+  if (knightRoot) {
+    pivot.remove(knightRoot)
+    disposeObject3D(knightRoot)
+    knightRoot = null
+    knightLimbs = null
+  }
+}
 
-  const label = tier === 'scout' ? 'Argos' : 'Tyr'
-  const mech = new WalkerMech(tier, label)
-  enableShadowCasting(mech.object3d)
-  pivot.add(mech.object3d)
+function setAsset(id: AssetId) {
+  currentAsset = id
+  clearAsset()
 
-  const center = groundModel(mech.object3d)
-  sun.target.position.copy(center).add(new THREE.Vector3(0, 0.4, 0))
-  frameCamera(center)
+  if (id === 'knight') {
+    const { root, limbs } = buildKnightModel()
+    knightRoot = root
+    knightLimbs = limbs
+    enableShadowCasting(root)
+    pivot.add(root)
 
-  current = mech
+    const center = groundModel(root)
+    sun.target.position.copy(center).add(new THREE.Vector3(0, 0.2, 0))
+    frameCamera(center)
+  } else {
+    const label = id === 'scout' ? 'Argos' : 'Tyr'
+    const mech = new WalkerMech(id, label)
+    enableShadowCasting(mech.object3d)
+    pivot.add(mech.object3d)
+
+    const center = groundModel(mech.object3d)
+    sun.target.position.copy(center).add(new THREE.Vector3(0, 0.4, 0))
+    frameCamera(center)
+
+    current = mech
+  }
 }
 
 const select = document.getElementById('asset') as HTMLSelectElement
 select.addEventListener('change', () => {
-  setAsset(select.value as WalkerTier)
+  setAsset(select.value as AssetId)
 })
 
 const btnStudio = document.getElementById('preset-studio') as HTMLButtonElement
@@ -240,7 +272,7 @@ btnReset.addEventListener('click', () => {
   frameCamera(lastFocus)
 })
 
-setAsset('scout')
+setAsset('knight')
 
 const clock = new THREE.Clock()
 
@@ -309,9 +341,22 @@ window.addEventListener('keyup', (e) => {
   keysDown.delete(e.code)
 })
 
+let knightDemoPhase = 0
+
 function tick() {
   const dt = Math.min(clock.getDelta(), 1 / 20)
   current?.update(dt)
+
+  if (knightLimbs) {
+    knightDemoPhase = (knightDemoPhase + dt * 1.8) % 1
+    const cycle = clock.elapsedTime % 12
+    let demoSpeed: number
+    if (cycle < 4) demoSpeed = 0
+    else if (cycle < 8) demoSpeed = 5.0
+    else demoSpeed = 9.0
+    animateKnight(knightLimbs, dt, demoSpeed, knightDemoPhase)
+  }
+
   applyKeyboardRoam(dt)
   syncSunTarget()
   controls.update()

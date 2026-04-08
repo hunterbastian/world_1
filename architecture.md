@@ -10,7 +10,7 @@ One-liner per file and exported function/class.
 | `viewer.html` | Dev model viewer: UI overlay + loads `src/viewer/modelViewer.ts` |
 | `vite.config.ts` | Vite multi-page build: `index.html` + `viewer.html` inputs |
 | `src/main.ts` | Creates canvas, instantiates `Game`, calls `start()` |
-| `src/viewer/modelViewer.ts` | Orbit studio for `WalkerMech`: key/fill/rim + shadows, studio/outdoor, exposure, bottom toolbar, WASD+Q/E roam, R/G/Shift; dispose on swap |
+| `src/viewer/modelViewer.ts` | Orbit studio for Knight + `WalkerMech` tiers: key/fill/rim + shadows, studio/outdoor, exposure, bottom toolbar, WASD+Q/E roam; knight auto-cycles idle/walk/run demo |
 
 ## game/
 
@@ -20,10 +20,11 @@ One-liner per file and exported function/class.
 | `Game.ts` | `.start()` | Begins the render loop |
 | `Game.ts` | `.stop()` | Cancels render loop, disposes input |
 | `Game.ts` | `.seedScene()` | Instantiates terrain, water, vegetation, sky, clouds, wind, player, camera rig, POIs, campfires, landmarks, dormant Walkers, journal, HUD, world map, pause menu, audio, post-fx |
-| `Player.ts` | `Player` | Player controller. WASD movement, sprint/stamina, slope gating, step events, procedural knight model with wind-driven cape flutter shader. |
-| `Player.ts` | `buildKnightModel()` | Builds a Dark Souls-style knight from Three.js primitives: helmet, torso, pauldrons, greaves, cape, sword on back |
-| `Player.ts` | `.update(dt, input, cameraYaw)` | Per-frame movement: accel/decel, terrain clamping, slope rejection, facing, step phase |
+| `Player.ts` | `Player` | Player controller. WASD movement, sprint/stamina, slope gating, step events. Imports knight model + animation from KnightModel.ts, drives cape flutter shader. |
+| `Player.ts` | `.update(dt, input, cameraYaw)` | Per-frame movement: accel/decel, terrain clamping, slope rejection, facing, step phase, calls animateKnight |
 | `Player.ts` | `.setWind(dirXZ)` | Updates cape flutter wind direction |
+| `KnightModel.ts` | `buildKnightModel()` | Procedural Dark Souls knight from Three.js primitives. Hierarchical limb groups (body, head, armL/R, legL/R, cape, tabard) with joint pivots for animation. |
+| `KnightModel.ts` | `animateKnight(limbs, dt, speed, phase)` | Speed-blended procedural animation: idle sway, walk stride, run with weight. Legs/arms counter-swing, body bobs, head counters. |
 | `Input.ts` | `Input`, `InputState` | Keyboard + mouse input. WASD, Shift sprint, E interact, Tab journal, Escape pause, pointer lock orbit. `consume()` returns and resets deltas. |
 | `CameraRig.ts` | `CameraRig` | Third-person orbit camera with critically damped spring, footstep shake, cinematic zoom. |
 | `CameraRig.ts` | `.addOrbitDelta(dx, dy)` | Applies mouse orbit |
@@ -50,7 +51,7 @@ One-liner per file and exported function/class.
 | `PointsOfInterest.ts` | `PointsOfInterest`, `POI` | Spawns ruin/shrine/camp POIs with discovery orbs. Proximity-based discovery triggers journal entries. |
 | `Campfires.ts` | `Campfires` | Places 5 campfire rings with point lights and additive ember particles. Wind-affected particle sim. |
 | `Landmarks.ts` | `Landmarks` | Places a ruined castle on the mega-mountain. Stone/iron geometry, slope-optimized placement. |
-| `WalkerMech.ts` | `WalkerTier`, `WalkerMech` | Procedural quadruped Walker (Scout/Assault): hull, armor, 4 legs, turret; `update` reserved for future animation. |
+| `WalkerMech.ts` | `WalkerTier`, `WalkerMech` | Procedural quadruped Walker (Scout/Assault): layered hull (belly, cabin, glacis, skirts, bustle, strips, rivets), segmented roof deck, turret ring + mantlet + barrel/muzzle, legs with knee shroud, strut, heel/toe foot; `update` reserved. |
 | `WalkerMechs.ts` | `WalkerMechs` | Spawns dormant Walkers with seeded biome rules: Scouts in `grassy_plains` (one near player spawn), Assaults in forest/mountains biased near ruin POIs; `walkers` list for future interaction. |
 | `noise.ts` | `makeNoise2D`, `fbm2`, `ridge2` | Deterministic simplex noise wrapper, FBM summation, ridge transform |
 

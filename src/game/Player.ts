@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { InputState } from './Input'
 import type { Terrain } from '../world/Terrain'
+import { buildKnightModel, animateKnight, type KnightLimbs } from './KnightModel'
 
 export type PlayerStepEvent = {
   intensity: number
@@ -9,139 +10,6 @@ export type PlayerStepEvent = {
 export type PlayerOptions = {
   terrain: Terrain
   start: THREE.Vector3
-}
-
-const MAT = {
-  armor: () => new THREE.MeshStandardMaterial({ color: 0x3a3a40, roughness: 0.85, metalness: 0.25 }),
-  leather: () => new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.95, metalness: 0.05 }),
-  cape: () => new THREE.MeshStandardMaterial({ color: 0x1a1a22, roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide }),
-  visor: () => new THREE.MeshStandardMaterial({ color: 0x0a0a0e, emissive: 0x1a2a4a, emissiveIntensity: 0.3, roughness: 0.5, metalness: 0.0 }),
-}
-
-function buildKnightModel(): THREE.Group {
-  const knight = new THREE.Group()
-  knight.name = 'KnightModel'
-
-  const armor = MAT.armor()
-  const leather = MAT.leather()
-
-  // --- Boots ---
-  const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.28), leather)
-  bootL.position.set(-0.12, 0.07, 0)
-  knight.add(bootL)
-
-  const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.28), leather)
-  bootR.position.set(0.12, 0.07, 0)
-  knight.add(bootR)
-
-  // --- Greaves (lower legs) ---
-  const greaveL = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.42, 7), armor)
-  greaveL.position.set(-0.12, 0.35, 0)
-  knight.add(greaveL)
-
-  const greaveR = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.42, 7), armor)
-  greaveR.position.set(0.12, 0.35, 0)
-  knight.add(greaveR)
-
-  // --- Knee guards ---
-  const kneeL = new THREE.Mesh(new THREE.SphereGeometry(0.085, 6, 5), armor)
-  kneeL.position.set(-0.12, 0.56, -0.03)
-  knight.add(kneeL)
-
-  const kneeR = new THREE.Mesh(new THREE.SphereGeometry(0.085, 6, 5), armor)
-  kneeR.position.set(0.12, 0.56, -0.03)
-  knight.add(kneeR)
-
-  // --- Thighs (upper legs) ---
-  const thighL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.32, 7), armor)
-  thighL.position.set(-0.11, 0.72, 0)
-  knight.add(thighL)
-
-  const thighR = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.32, 7), armor)
-  thighR.position.set(0.11, 0.72, 0)
-  knight.add(thighR)
-
-  // --- Belt / waist ---
-  const belt = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.1, 0.22), leather)
-  belt.position.set(0, 0.90, 0)
-  knight.add(belt)
-
-  const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.03), armor)
-  buckle.position.set(0, 0.90, -0.125)
-  knight.add(buckle)
-
-  // --- Torso / chest plate ---
-  const torsoGeo = new THREE.BoxGeometry(0.40, 0.42, 0.24)
-  const torso = new THREE.Mesh(torsoGeo, armor)
-  torso.position.set(0, 1.16, 0)
-  knight.add(torso)
-
-  // Chest ridge detail
-  const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.18, 0.04), armor.clone())
-  chestPlate.position.set(0, 1.22, -0.14)
-  knight.add(chestPlate)
-
-  // --- Pauldrons (shoulder armor) ---
-  const pauldronL = new THREE.Mesh(new THREE.SphereGeometry(0.14, 7, 5, 0, Math.PI * 2, 0, Math.PI * 0.6), armor)
-  pauldronL.position.set(-0.26, 1.34, 0)
-  pauldronL.scale.set(1.1, 0.7, 1.0)
-  knight.add(pauldronL)
-
-  const pauldronR = new THREE.Mesh(new THREE.SphereGeometry(0.14, 7, 5, 0, Math.PI * 2, 0, Math.PI * 0.6), armor)
-  pauldronR.position.set(0.26, 1.34, 0)
-  pauldronR.scale.set(1.1, 0.7, 1.0)
-  knight.add(pauldronR)
-
-  // --- Arms ---
-  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.38, 6), armor)
-  armL.position.set(-0.28, 1.10, 0)
-  armL.rotation.z = 0.12
-  knight.add(armL)
-
-  const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.38, 6), armor)
-  armR.position.set(0.28, 1.10, 0)
-  armR.rotation.z = -0.12
-  knight.add(armR)
-
-  // --- Gauntlets ---
-  const gauntletL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.12), armor)
-  gauntletL.position.set(-0.30, 0.88, 0)
-  knight.add(gauntletL)
-
-  const gauntletR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.12), armor)
-  gauntletR.position.set(0.30, 0.88, 0)
-  knight.add(gauntletR)
-
-  // --- Neck ---
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.1, 6), armor)
-  neck.position.set(0, 1.40, 0)
-  knight.add(neck)
-
-  // --- Helmet ---
-  const helmetBase = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.14, 0.22, 8), armor)
-  helmetBase.position.set(0, 1.56, 0)
-  knight.add(helmetBase)
-
-  const helmetTop = new THREE.Mesh(new THREE.SphereGeometry(0.135, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.5), armor)
-  helmetTop.position.set(0, 1.67, 0)
-  knight.add(helmetTop)
-
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.04, 0.06), MAT.visor())
-  visor.position.set(0, 1.54, -0.12)
-  knight.add(visor)
-
-  const facePlate = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.03), armor)
-  facePlate.position.set(0, 1.50, -0.14)
-  knight.add(facePlate)
-
-  // --- Cape ---
-  const capeGeo = new THREE.PlaneGeometry(0.38, 0.85, 4, 10)
-  const capeMesh = new THREE.Mesh(capeGeo, MAT.cape())
-  capeMesh.name = 'Cape'
-  capeMesh.position.set(0, 0.97, 0.14)
-  knight.add(capeMesh)
-
-  return knight
 }
 
 export class Player {
@@ -160,6 +28,7 @@ export class Player {
   private capeMats: THREE.MeshStandardMaterial[] = []
   private capeTime = 0
   private capeWind = new THREE.Vector2(1, 0)
+  private readonly knightLimbs: KnightLimbs
 
   private readonly walkSpeed = 6.0
   private readonly runSpeed = 9.5
@@ -174,7 +43,9 @@ export class Player {
     this.object3d = new THREE.Group()
     this.object3d.name = 'Player'
 
-    this.model = buildKnightModel()
+    const { root, limbs } = buildKnightModel()
+    this.model = root
+    this.knightLimbs = limbs
     this.object3d.add(this.model)
     this.attachCapeFlutter(this.model)
 
@@ -281,6 +152,8 @@ export class Player {
       const intensity = THREE.MathUtils.clamp(speed / this.runSpeed, 0.2, 1.0)
       for (const cb of this.stepListeners) cb({ intensity })
     }
+
+    animateKnight(this.knightLimbs, dt, speed, this.stepPhase)
   }
 
   setWind(dirXZ: THREE.Vector2) {
