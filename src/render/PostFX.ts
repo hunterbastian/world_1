@@ -34,14 +34,14 @@ class ToonRampEffect extends Effect {
         vec3 col = inputColor.rgb;
         float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
 
-        // Cool shadow push — blue-violet tint in dark regions
-        float shadowMask = 1.0 - smoothstep(0.08, 0.38, lum);
-        vec3 coolShadow = vec3(0.78, 0.80, 0.96);
+        // Cool shadow push — blue tint in dark regions (Destiny mythic ambient)
+        float shadowMask = 1.0 - smoothstep(0.10, 0.40, lum);
+        vec3 coolShadow = vec3(0.82, 0.84, 0.98);
         col = mix(col, col * coolShadow, shadowMask * uCoolness);
 
-        // Warm highlight push — golden amber in bright regions
-        float highMask = smoothstep(0.50, 0.82, lum);
-        vec3 warmHighlight = vec3(1.08, 1.02, 0.90);
+        // Warm highlight push — golden in bright regions
+        float highMask = smoothstep(0.48, 0.80, lum);
+        vec3 warmHighlight = vec3(1.06, 1.00, 0.88);
         col *= mix(vec3(1.0), warmHighlight, highMask * uWarmth);
 
         // Subtle midtone contrast lift

@@ -168,7 +168,7 @@ export class Game {
       : this.player.position
     this.sky.updateShadowFocus(shadowTarget)
     this.rim.sunDir.copy(this.sky.sunDirection)
-    this.rim.intensity = THREE.MathUtils.clamp(0.15 + this.sky.duskAmount * 0.55, 0, 0.8)
+    this.rim.intensity = THREE.MathUtils.clamp(0.25 + this.sky.duskAmount * 0.55, 0, 0.9)
     this.cloudDome.update(dt, this.sky)
     this.wind.update(dt)
 
@@ -383,10 +383,12 @@ export class Game {
   private iblTimer = 0
 
   private buildIBL() {
+    const oldEnv = this.scene.environment
     const pmrem = new THREE.PMREMGenerator(this.renderer)
     const envRT = pmrem.fromScene(this.scene, 0.04, 0.1, 2000)
     this.scene.environment = envRT.texture
     pmrem.dispose()
+    if (oldEnv) oldEnv.dispose()
   }
 
   private projectToScreenUv(worldPos: THREE.Vector3, camera: THREE.Camera) {

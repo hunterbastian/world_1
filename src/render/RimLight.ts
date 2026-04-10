@@ -25,11 +25,11 @@ export function applyRimLightToStandardMaterial(mat: THREE.MeshStandardMaterial,
       /* glsl */ `
         vec3 Nw = normalize(normal);
         vec3 Vw = normalize(-vViewPosition);
-        float fres = pow(1.0 - clamp(dot(Vw, Nw), 0.0, 1.0), 1.8);
+        float fres = pow(1.0 - clamp(dot(Vw, Nw), 0.0, 1.0), 1.5);
         float sunAmt = clamp(dot(normalize(uRimSunDir), vec3(0.0, 1.0, 0.0)), 0.0, 1.0);
-        float duskBoost = 1.0 - smoothstep(0.35, 0.95, sunAmt);
-        float rim = fres * (0.55 + 0.35 * duskBoost) * uRimIntensity;
-        gl_FragColor.rgb += rim * vec3(1.0, 0.92, 0.82);
+        float duskBoost = 1.0 - smoothstep(0.25, 0.85, sunAmt);
+        float rim = fres * (0.65 + 0.45 * duskBoost) * uRimIntensity;
+        gl_FragColor.rgb += rim * vec3(1.0, 0.88, 0.70);
         #include <dithering_fragment>
       `
     )

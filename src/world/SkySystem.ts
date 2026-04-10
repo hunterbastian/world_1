@@ -9,7 +9,7 @@ export class SkySystem {
   public readonly sunLight: THREE.DirectionalLight
   public readonly sky: Sky
 
-  public timeOfDay = 0.5 // 0..1 (0.5 = noon)
+  public timeOfDay = 0.37 // 0..1 (0.37 ≈ morning golden hour)
   public readonly sunDirection = new THREE.Vector3(0, 1, 0)
   public dayAmount = 1
   public duskAmount = 0
@@ -52,7 +52,7 @@ export class SkySystem {
     u.mieDirectionalG.value = 0.8
   }
 
-  public freezeTime = true
+  public freezeTime = false
 
   update(dt: number, renderer: THREE.WebGLRenderer) {
     if (!this.freezeTime) {
