@@ -47,15 +47,17 @@ export class Vegetation {
 
     const forestTrees = this.makeTreeInstanced({
       kind: 'deciduous',
-      colorA: new THREE.Color(0x4a9e3f),
-      colorB: new THREE.Color(0x2d7a35),
+      colorA: new THREE.Color(0x5cb848),
+      colorB: new THREE.Color(0x8ad44a),
+      colorC: new THREE.Color(0x3a8a2e),
       trunk: new THREE.Color(0x5a3d28),
       count: 2800,
     })
     const pineTrees = this.makeTreeInstanced({
       kind: 'pine',
-      colorA: new THREE.Color(0x2a5e35),
-      colorB: new THREE.Color(0x1a4528),
+      colorA: new THREE.Color(0x2e7040),
+      colorB: new THREE.Color(0x4a9858),
+      colorC: new THREE.Color(0x1c5030),
       trunk: new THREE.Color(0x4a3220),
       count: 800,
     })
@@ -133,6 +135,7 @@ export class Vegetation {
     kind: 'deciduous' | 'pine'
     colorA: THREE.Color
     colorB: THREE.Color
+    colorC: THREE.Color
     trunk: THREE.Color
     count: number
   }) {
@@ -140,35 +143,53 @@ export class Vegetation {
     const mat = makeTreeWindMaterial()
     mat.uniforms.uLeafA.value = opts.colorA
     mat.uniforms.uLeafB.value = opts.colorB
+    mat.uniforms.uLeafC.value = opts.colorC
     mat.uniforms.uTrunk.value = opts.trunk
 
     this.mats.push(mat)
 
     const mesh = new THREE.InstancedMesh(geo, mat, opts.count)
     mesh.frustumCulled = true
-    mesh.castShadow = false
-    mesh.receiveShadow = false
+    mesh.castShadow = true
+    mesh.receiveShadow = true
     return mesh
   }
 }
 
 function makeTreeGeometry(kind: 'deciduous' | 'pine') {
-  const trunk = new THREE.CylinderGeometry(0.12, 0.18, 1.4, 6, 1)
-  trunk.translate(0, 0.7, 0)
+  const trunk = new THREE.CylinderGeometry(0.10, 0.20, 1.6, 7, 2)
+  trunk.translate(0, 0.8, 0)
 
-  const canopy =
-    kind === 'pine'
-      ? new THREE.ConeGeometry(0.75, 1.9, 7, 1)
-      : new THREE.DodecahedronGeometry(0.85, 0)
-  canopy.translate(0, kind === 'pine' ? 2.0 : 2.1, 0)
+  const parts: THREE.BufferGeometry[] = [trunk]
+  let trunkVertCount = trunk.attributes.position.count
 
-  const geo = mergeGeometries([trunk, canopy])
+  if (kind === 'pine') {
+    // Layered pine: three stacked cones (bottom wide, top narrow)
+    const cone1 = new THREE.ConeGeometry(0.90, 1.1, 8, 1)
+    cone1.translate(0, 1.6, 0)
+    const cone2 = new THREE.ConeGeometry(0.65, 0.9, 8, 1)
+    cone2.translate(0, 2.3, 0)
+    const cone3 = new THREE.ConeGeometry(0.38, 0.7, 7, 1)
+    cone3.translate(0, 2.9, 0)
+    parts.push(cone1, cone2, cone3)
+  } else {
+    // Deciduous: clustered spheres for a fuller, Ghibli-style canopy
+    const r1 = new THREE.IcosahedronGeometry(0.72, 1)
+    r1.translate(0, 2.3, 0)
+    const r2 = new THREE.IcosahedronGeometry(0.55, 1)
+    r2.translate(0.45, 2.6, 0.25)
+    const r3 = new THREE.IcosahedronGeometry(0.50, 1)
+    r3.translate(-0.35, 2.55, -0.30)
+    const r4 = new THREE.IcosahedronGeometry(0.40, 1)
+    r4.translate(0.1, 3.0, 0.15)
+    parts.push(r1, r2, r3, r4)
+  }
 
-  // Attribute to separate trunk vs leaves in shader
-  const trunkCount = trunk.attributes.position.count
+  const geo = mergeGeometries(parts)
+
   const total = geo.attributes.position.count
   const isLeaf = new Float32Array(total)
-  for (let i = 0; i < total; i++) isLeaf[i] = i >= trunkCount ? 1 : 0
+  for (let i = 0; i < total; i++) isLeaf[i] = i >= trunkVertCount ? 1 : 0
   geo.setAttribute('aIsLeaf', new THREE.BufferAttribute(isLeaf, 1))
 
   return geo
@@ -218,8 +239,9 @@ function makeTreeWindMaterial() {
     uniforms: {
       uTime: { value: 0 },
       uWind: { value: new THREE.Vector2(1, 0) },
-      uLeafA: { value: new THREE.Color(0x4f7d3a) },
-      uLeafB: { value: new THREE.Color(0x9a7a2a) },
+      uLeafA: { value: new THREE.Color(0x5cb848) },
+      uLeafB: { value: new THREE.Color(0x8ad44a) },
+      uLeafC: { value: new THREE.Color(0x3a8a2e) },
       uTrunk: { value: new THREE.Color(0x4a3425) },
       uSwayScale: { value: 1.0 },
     },
@@ -228,6 +250,7 @@ function makeTreeWindMaterial() {
       varying float vIsLeaf;
       varying vec3 vNormalW;
       varying vec3 vWorldPos;
+      varying float vHeight;
       uniform float uTime;
       uniform vec2 uWind;
       uniform float uSwayScale;
@@ -236,12 +259,20 @@ function makeTreeWindMaterial() {
         vIsLeaf = aIsLeaf;
 
         vec3 p = position;
-        float w = clamp((p.y - 0.4) / 2.2, 0.0, 1.0);
+        vHeight = p.y;
+        float w = clamp((p.y - 0.4) / 2.8, 0.0, 1.0);
         float phase = (instanceMatrix[3].x + instanceMatrix[3].z) * 0.15;
 
         vec2 wind = normalize(uWind);
-        float sway = sin(uTime * 1.3 + phase) * 0.16 + sin(uTime * 2.1 + phase * 1.7) * 0.06;
-        p.xz += wind * sway * uSwayScale * w * (0.35 + 0.65 * aIsLeaf);
+        // Primary sway — whole tree leans
+        float sway = sin(uTime * 1.1 + phase) * 0.12 + sin(uTime * 1.9 + phase * 1.7) * 0.05;
+        p.xz += wind * sway * uSwayScale * w * (0.3 + 0.7 * aIsLeaf);
+
+        // Secondary leaf flutter — high frequency, leaf vertices only
+        float flutter = sin(uTime * 4.5 + phase * 3.1 + p.x * 8.0) * 0.025
+                      + sin(uTime * 6.2 + phase * 2.3 + p.z * 7.0) * 0.015;
+        p.x += flutter * aIsLeaf * w * uSwayScale;
+        p.z += flutter * 0.7 * aIsLeaf * w * uSwayScale;
 
         vec4 wp = modelMatrix * instanceMatrix * vec4(p, 1.0);
         vWorldPos = wp.xyz;
@@ -253,8 +284,10 @@ function makeTreeWindMaterial() {
       varying float vIsLeaf;
       varying vec3 vNormalW;
       varying vec3 vWorldPos;
+      varying float vHeight;
       uniform vec3 uLeafA;
       uniform vec3 uLeafB;
+      uniform vec3 uLeafC;
       uniform vec3 uTrunk;
 
       float hash(vec2 p) {
@@ -266,12 +299,47 @@ function makeTreeWindMaterial() {
       void main() {
         vec3 N = normalize(vNormalW);
         vec3 V = normalize(cameraPosition - vWorldPos);
-        float rim = pow(1.0 - max(0.0, dot(N, V)), 2.0);
+        vec3 L = normalize(vec3(0.4, 0.8, 0.3));
 
-        float n = hash(vWorldPos.xz * 0.8);
-        vec3 leaf = mix(uLeafA, uLeafB, n);
-        vec3 col = mix(uTrunk, leaf, vIsLeaf);
-        col += rim * 0.08 * vIsLeaf;
+        // 3-color leaf palette blended by spatial noise
+        float n1 = hash(vWorldPos.xz * 0.8);
+        float n2 = hash(vWorldPos.xz * 1.5 + vec2(42.0, 17.0));
+        vec3 leafCol = n1 < 0.33 ? uLeafA : n1 < 0.66 ? uLeafB : uLeafC;
+        leafCol = mix(leafCol, uLeafB, n2 * 0.3);
+
+        // Height gradient — tips lighter/warmer, base deeper
+        float heightGrad = clamp((vHeight - 1.5) / 2.0, 0.0, 1.0);
+        leafCol = mix(leafCol * 0.85, leafCol * 1.1, heightGrad);
+
+        vec3 col = mix(uTrunk, leafCol, vIsLeaf);
+
+        // Trunk bark detail — darken in crevices
+        if (vIsLeaf < 0.5) {
+          float bark = hash(vWorldPos.xy * 4.0) * 0.15;
+          col *= 0.9 + bark;
+        }
+
+        // Diffuse NdotL with hemisphere ambient
+        float ndl = max(0.0, dot(N, L));
+        float wrap = max(0.0, dot(N, L) * 0.5 + 0.5);
+        vec3 ambient = vec3(0.35, 0.40, 0.50);
+        vec3 sunColor = vec3(1.0, 0.95, 0.85);
+        vec3 lighting = ambient + sunColor * mix(wrap * 0.4, ndl * 0.65, vIsLeaf);
+
+        col *= lighting;
+
+        // Subsurface scattering approximation for leaves
+        float sss = max(0.0, dot(-V, L)) * vIsLeaf;
+        float sssWrap = pow(sss, 1.5) * 0.25;
+        col += leafCol * sssWrap * vec3(0.8, 1.0, 0.4);
+
+        // Rim light — golden warm edge, stronger on leaves
+        float rim = pow(1.0 - max(0.0, dot(N, V)), 2.5);
+        col += rim * vec3(0.9, 0.82, 0.55) * 0.12 * (0.3 + 0.7 * vIsLeaf);
+
+        // AO — darken where canopy meets trunk
+        float ao = clamp((vHeight - 0.8) / 1.5, 0.5, 1.0);
+        col *= ao;
 
         gl_FragColor = vec4(col, 1.0);
       }

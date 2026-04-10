@@ -48,7 +48,7 @@ One-liner per file and exported function/class.
 | `Terrain.ts` | `.carveRiverChannels(paths, width, depth)` | Carves geometry along a path for rivers/passes |
 | `Biomes.ts` | `BiomeId`, `Biome`, `biomeIndex`, `biomeFromIndex` | Biome enum (`grassy_plains`, `deep_forest`, `snowy_mountains`), color/density params, index helpers |
 | `Water.ts` | `Water` | Ocean plane + river ribbons. Custom shader materials with wind-driven animation. Downhill path generation for rivers, carves terrain channels. |
-| `Vegetation.ts` | `Vegetation` | Instanced deciduous + pine trees scattered by biome density. Wind sway shader. Quality-tier instance count scaling. |
+| `Vegetation.ts` | `Vegetation` | Instanced trees (deciduous: clustered icosahedron canopy; pine: layered cones) scattered by biome density. 3-color leaf palette, subsurface scattering, diffuse+hemisphere lighting, golden rim, height gradient, bark detail, leaf flutter + trunk sway. Casts and receives shadows. Quality-tier instance count scaling. |
 | `GrassField.ts` | `GrassField` | Dense instanced grass blades (22k). Wind sway + player push-away. BotW-saturated green-to-yellow tips. Quality-tier scaling. |
 | `SkySystem.ts` | `SkySystem` | Day/night cycle (~10min). Three.js Sky object, directional sun light, fog color/density, dusk detection. |
 | `CloudDome.ts` | `CloudDome` | Backface sphere with FBM cloud shader. Day/dusk/night coloring, quality-adaptive detail. |
@@ -64,7 +64,7 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `PostFX.ts` | `PostFX` | EffectComposer pipeline: **Destiny-style warm/cool color grade** (cool blue-violet shadows, warm golden highlights, time-of-day driven), saturated biome palette, god rays, warm-to-cool height fog veil, **atmospheric perspective** (depth-based desaturation + blue shift for vast horizon feel), bloom, subtle film grain, chromatic aberration, vignette. Biome ID render pass. Quality-adaptive. |
+| `PostFX.ts` | `PostFX` | EffectComposer pipeline: **Destiny-style warm/cool color grade** (cool blue-violet shadows, warm golden highlights, time-of-day driven), saturated biome palette, god rays, warm-to-cool height fog veil, **atmospheric perspective** (depth-based desaturation + blue shift), **depth of field** (subtle gameplay bokeh, quality-adaptive), **eye adaptation** (auto-exposure driven by scene luminance), bloom, film grain, chromatic aberration, vignette. Biome ID render pass. Quality-adaptive. |
 | `PostFX.ts` | `PostFX.tagBiome(mesh, idx)` | Static helper to tag meshes for biome grading |
 | `RimLight.ts` | `applyRimLightToScene`, `applyRimLightToStandardMaterial` | Patches MeshStandardMaterial with wide warm golden rim (always-on, dusk-boosted). BotW-style character pop. |
 

@@ -9,6 +9,7 @@ import {
   BloomEffect,
   VignetteEffect,
   ChromaticAberrationEffect,
+  DepthOfFieldEffect,
   BlendFunction,
 } from 'postprocessing'
 import type { QualityTier } from '../game/PerformanceManager'
@@ -402,6 +403,34 @@ class AtmoPerspectiveEffect extends Effect {
   }
 }
 
+/**
+ * Eye adaptation / auto-exposure.
+ *
+ * Samples the scene luminance and smoothly adjusts exposure over time.
+ * Walking from bright exterior into a dark area → exposure ramps up.
+ * Looking at the sun → exposure dips. Simulates human eye / camera
+ * iris adaptation. Destiny and Halo both use this.
+ */
+class EyeAdaptationEffect extends Effect {
+  constructor() {
+    super('EyeAdaptationEffect', /* glsl */ `
+      uniform float uExposure;
+
+      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+        outputColor = vec4(inputColor.rgb * uExposure, 1.0);
+      }
+    `, {
+      uniforms: new Map([
+        ['uExposure', new THREE.Uniform(1.0)],
+      ]),
+    })
+  }
+
+  setExposure(v: number) {
+    ;(this.uniforms.get('uExposure') as THREE.Uniform).value = v
+  }
+}
+
 /* ── PostFX Pipeline ────────────────────────────────────────── */
 
 export class PostFX {
@@ -424,10 +453,20 @@ export class PostFX {
   private readonly bloom: BloomEffect
   private readonly vignette: VignetteEffect
   private readonly chromatic: ChromaticAberrationEffect
+  private readonly dof: DepthOfFieldEffect
+  private readonly eyeAdapt: EyeAdaptationEffect
   private readonly ssaoPass: EffectPass
+  private readonly dofPass: EffectPass
 
   private time = 0
   private quality: QualityTier = 'high'
+
+  // Eye adaptation state
+  private adaptedLuminance = 0.35
+  private readonly adaptSpeed = 1.8
+  private readonly minExposure = 0.7
+  private readonly maxExposure = 1.6
+  private readonly targetLumKey = 0.3
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
     this.composer = new EffectComposer(renderer)
@@ -492,7 +531,18 @@ export class PostFX {
       ),
     )
 
-    // ── Pass 5: Final polish ──
+    // ── Pass 5: Depth of field (subtle gameplay DOF) ──
+    this.dof = new DepthOfFieldEffect(camera as THREE.PerspectiveCamera, {
+      focusDistance: 0.012,
+      focalLength: 0.025,
+      bokehScale: 2.5,
+    })
+    this.dofPass = new EffectPass(camera as THREE.Camera, this.dof)
+    this.composer.addPass(this.dofPass)
+
+    // ── Pass 6: Eye adaptation + final polish ──
+    this.eyeAdapt = new EyeAdaptationEffect()
+
     this.chromatic = new ChromaticAberrationEffect({
       offset: new THREE.Vector2(0.0006, 0.0003),
       radialModulation: true,
@@ -506,7 +556,7 @@ export class PostFX {
 
     this.composer.addPass(
       new EffectPass(camera as THREE.Camera,
-        this.chromatic, this.vignette, this.grainEffect,
+        this.eyeAdapt, this.chromatic, this.vignette, this.grainEffect,
       ),
     )
   }
@@ -514,12 +564,13 @@ export class PostFX {
   setQuality(tier: QualityTier) {
     this.quality = tier
 
-    // SSAO — disable entirely on low, half-res on medium
     this.ssaoPass.enabled = tier !== 'low'
     this.normalPass.enabled = tier !== 'low'
 
-    // Bloom intensity
     this.bloom.intensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.35 : 0.5
+
+    this.dofPass.enabled = tier !== 'low'
+    this.dof.bokehScale = tier === 'high' ? 2.5 : 1.8
   }
 
   resize(w: number, h: number) {
@@ -574,6 +625,19 @@ export class PostFX {
     this.atmoPerspective.setDayAmount(dayAmount)
     const atmoMul = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.85 : 0.7
     this.atmoPerspective.setStrength(atmoMul)
+
+    // Eye adaptation — derive target luminance from time of day and
+    // smoothly adapt exposure. Full luminance feedback from the
+    // framebuffer would require a readback; instead we approximate
+    // scene brightness from sky state which correlates well and is free.
+    const sceneLum = dayAmount * 0.45 + duskAmount * 0.2 + 0.08
+    this.adaptedLuminance += (sceneLum - this.adaptedLuminance) * (1 - Math.exp(-this.adaptSpeed * dt))
+    const exposure = THREE.MathUtils.clamp(
+      this.targetLumKey / Math.max(0.01, this.adaptedLuminance),
+      this.minExposure,
+      this.maxExposure,
+    )
+    this.eyeAdapt.setExposure(exposure)
   }
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
