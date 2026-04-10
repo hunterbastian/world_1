@@ -152,29 +152,10 @@ body {
   background: var(--ui-accent-dim);
 }
 
-/* ── HUD bar ── */
-.ui-bar {
-  width: 180px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-  position: relative;
-}
-.ui-bar-fill {
-  height: 100%;
-  width: 100%;
-  border-radius: 2px;
-  transform-origin: left center;
-  transition: transform 80ms linear;
-}
-
-@keyframes healthPulse {
+/* ── HUD pulse animation ── */
+@keyframes hudPulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-.ui-bar-fill--low {
-  animation: healthPulse 1s ease-in-out infinite;
+  50% { opacity: 0.45; }
 }
 
 /* ── Custom scrollbar ── */
