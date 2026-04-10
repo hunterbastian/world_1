@@ -61,8 +61,8 @@ function makeGrassMaterial(): THREE.ShaderMaterial {
     uniforms: {
       uTime: { value: 0 },
       uWind: { value: new THREE.Vector2(1, 0) },
-      uColorBase: { value: new THREE.Color(0x4a8a42) },
-      uColorTip: { value: new THREE.Color(0x82c05a) },
+      uColorBase: { value: new THREE.Color(0x5a9e50) },
+      uColorTip: { value: new THREE.Color(0x9ad468) },
       uPlayerPos: { value: new THREE.Vector3() },
     },
     vertexShader: /* glsl */ `

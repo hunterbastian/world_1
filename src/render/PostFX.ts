@@ -335,48 +335,47 @@ class HeightFogEffect extends Effect {
  * with a blend toward a blue-grey horizon, simulating Rayleigh
  * scattering. Gives the NMS / BotW / Destiny vast-horizon feel.
  */
+/**
+ * Atmospheric perspective using screen-space luminance + position
+ * as a depth proxy. Avoids depth buffer issues while still giving
+ * the distance fade / desaturation / horizon shift look.
+ *
+ * Lower screen = closer (ground near feet). Higher screen near
+ * horizon band = further. Combined with luminance (distant things
+ * are foggier/brighter from scatter) this gives a convincing
+ * Rayleigh-like effect without a depth read.
+ */
 class AtmoPerspectiveEffect extends Effect {
   constructor() {
     super('AtmoPerspectiveEffect', /* glsl */ `
-      uniform float uNear;
-      uniform float uFar;
       uniform float uStrength;
       uniform float uDesaturation;
       uniform vec3  uHorizonColor;
-      uniform float uDayAmount;
-
-      float readDepth(const in vec2 uv) {
-        float d = texture2D(depthBuffer, uv).r;
-        float ndc = d * 2.0 - 1.0;
-        return (2.0 * uNear * uFar) / (uFar + uNear - ndc * (uFar - uNear));
-      }
 
       void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
         vec3 col = inputColor.rgb;
-        float depth = readDepth(uv);
 
-        // Exponential falloff — starts subtle, ramps past mid-distance
-        float t = 1.0 - exp(-depth * uStrength * 0.003);
-        t = clamp(t, 0.0, 0.85);
+        // Screen-space distance proxy: horizon band (middle of screen) = far
+        // Ground at bottom = near, sky at top = sky (not terrain)
+        float horizonDist = smoothstep(0.35, 0.55, uv.y) * (1.0 - smoothstep(0.58, 0.80, uv.y));
+        float groundFade = smoothstep(0.55, 0.30, uv.y) * 0.3;
+        float t = (horizonDist + groundFade) * uStrength;
+        t = clamp(t, 0.0, 0.45);
 
-        // Desaturate with distance
+        // Desaturate distant pixels
         float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
         vec3 desat = mix(col, vec3(lum), t * uDesaturation);
 
-        // Shift toward horizon color (cool blue-grey, warmer at dusk)
-        vec3 horizonCol = uHorizonColor;
-        vec3 result = mix(desat, horizonCol, t * 0.5);
+        // Blend toward horizon color
+        vec3 result = mix(desat, uHorizonColor, t * 0.35);
 
         outputColor = vec4(result, 1.0);
       }
     `, {
       uniforms: new Map<string, THREE.Uniform>([
-        ['uNear', new THREE.Uniform(0.1)],
-        ['uFar', new THREE.Uniform(2000)],
-        ['uStrength', new THREE.Uniform(1.0)],
-        ['uDesaturation', new THREE.Uniform(0.7)],
+        ['uStrength', new THREE.Uniform(0.6)],
+        ['uDesaturation', new THREE.Uniform(0.5)],
         ['uHorizonColor', new THREE.Uniform(new THREE.Color(0.65, 0.72, 0.82))],
-        ['uDayAmount', new THREE.Uniform(1.0)],
       ]),
     })
   }
@@ -391,15 +390,6 @@ class AtmoPerspectiveEffect extends Effect {
 
   setHorizonColor(col: THREE.Color) {
     ;(this.uniforms.get('uHorizonColor') as THREE.Uniform).value.copy(col)
-  }
-
-  setDayAmount(v: number) {
-    ;(this.uniforms.get('uDayAmount') as THREE.Uniform).value = v
-  }
-
-  setCameraNearFar(near: number, far: number) {
-    ;(this.uniforms.get('uNear') as THREE.Uniform).value = near
-    ;(this.uniforms.get('uFar') as THREE.Uniform).value = far
   }
 }
 
@@ -461,12 +451,12 @@ export class PostFX {
   private time = 0
   private quality: QualityTier = 'high'
 
-  // Eye adaptation state
-  private adaptedLuminance = 0.35
-  private readonly adaptSpeed = 1.8
-  private readonly minExposure = 0.7
-  private readonly maxExposure = 1.6
-  private readonly targetLumKey = 0.3
+  // Eye adaptation state — subtle range, don't crush the image
+  private adaptedLuminance = 0.4
+  private readonly adaptSpeed = 1.2
+  private readonly minExposure = 0.9
+  private readonly maxExposure = 1.15
+  private readonly targetLumKey = 0.4
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
     this.composer = new EffectComposer(renderer)
@@ -533,9 +523,9 @@ export class PostFX {
 
     // ── Pass 5: Depth of field (subtle gameplay DOF) ──
     this.dof = new DepthOfFieldEffect(camera as THREE.PerspectiveCamera, {
-      focusDistance: 0.012,
-      focalLength: 0.025,
-      bokehScale: 2.5,
+      focusDistance: 0.02,
+      focalLength: 0.018,
+      bokehScale: 1.5,
     })
     this.dofPass = new EffectPass(camera as THREE.Camera, this.dof)
     this.composer.addPass(this.dofPass)
@@ -570,7 +560,7 @@ export class PostFX {
     this.bloom.intensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.35 : 0.5
 
     this.dofPass.enabled = tier !== 'low'
-    this.dof.bokehScale = tier === 'high' ? 2.5 : 1.8
+    this.dof.bokehScale = tier === 'high' ? 1.5 : 1.0
   }
 
   resize(w: number, h: number) {
@@ -611,9 +601,9 @@ export class PostFX {
     this.heightFog.setCamHeight(camHeight)
     this.heightFog.setSunScreenUv(sunUv)
 
-    // Warm/cool grading shifts with time of day — cooler shadows at night
-    this.toonRamp.setCoolness(THREE.MathUtils.lerp(0.7, 0.55, dayAmount))
-    this.toonRamp.setWarmth(THREE.MathUtils.lerp(0.3, 0.65, dayAmount) + duskAmount * 0.2)
+    // Warm/cool grading — subtle shift, don't crush colors
+    this.toonRamp.setCoolness(THREE.MathUtils.lerp(0.5, 0.35, dayAmount))
+    this.toonRamp.setWarmth(THREE.MathUtils.lerp(0.2, 0.45, dayAmount) + duskAmount * 0.15)
 
     // Atmospheric perspective — horizon color shifts with time of day
     const dayHorizon = new THREE.Color(0.65, 0.72, 0.82)
@@ -622,9 +612,8 @@ export class PostFX {
     const horizonCol = nightHorizon.clone().lerp(dayHorizon, dayAmount)
     horizonCol.lerp(duskHorizon, duskAmount * 0.6)
     this.atmoPerspective.setHorizonColor(horizonCol)
-    this.atmoPerspective.setDayAmount(dayAmount)
-    const atmoMul = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.85 : 0.7
-    this.atmoPerspective.setStrength(atmoMul)
+    const atmoBase = this.quality === 'high' ? 0.6 : this.quality === 'medium' ? 0.45 : 0.3
+    this.atmoPerspective.setStrength(atmoBase)
 
     // Eye adaptation — derive target luminance from time of day and
     // smoothly adapt exposure. Full luminance feedback from the

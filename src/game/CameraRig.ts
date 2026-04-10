@@ -161,8 +161,8 @@ export class CameraRig {
     }
 
     // --- Weighted sway bob ---
-    // Smooth the bob intensity so start/stop has a ramp (anticipation → settle)
-    this.bobIntensitySmooth += (this.bobIntensity - this.bobIntensitySmooth) * (1 - Math.exp(-3.5 * dt))
+    // Smooth the bob intensity — faster response for snappy feel, still no instant snap
+    this.bobIntensitySmooth += (this.bobIntensity - this.bobIntensitySmooth) * (1 - Math.exp(-6 * dt))
 
     this.bobPhase += dt * this.bobFrequency * Math.max(0.01, this.bobIntensitySmooth)
     const amp = this.bobIntensitySmooth

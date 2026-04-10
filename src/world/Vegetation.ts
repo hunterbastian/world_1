@@ -164,25 +164,19 @@ function makeTreeGeometry(kind: 'deciduous' | 'pine') {
   let trunkVertCount = trunk.attributes.position.count
 
   if (kind === 'pine') {
-    // Layered pine: three stacked cones (bottom wide, top narrow)
-    const cone1 = new THREE.ConeGeometry(0.90, 1.1, 8, 1)
-    cone1.translate(0, 1.6, 0)
-    const cone2 = new THREE.ConeGeometry(0.65, 0.9, 8, 1)
-    cone2.translate(0, 2.3, 0)
-    const cone3 = new THREE.ConeGeometry(0.38, 0.7, 7, 1)
-    cone3.translate(0, 2.9, 0)
-    parts.push(cone1, cone2, cone3)
+    // Layered pine: two stacked cones (cheaper than three)
+    const cone1 = new THREE.ConeGeometry(0.85, 1.4, 6, 1)
+    cone1.translate(0, 1.7, 0)
+    const cone2 = new THREE.ConeGeometry(0.50, 1.0, 6, 1)
+    cone2.translate(0, 2.7, 0)
+    parts.push(cone1, cone2)
   } else {
-    // Deciduous: clustered spheres for a fuller, Ghibli-style canopy
-    const r1 = new THREE.IcosahedronGeometry(0.72, 1)
-    r1.translate(0, 2.3, 0)
-    const r2 = new THREE.IcosahedronGeometry(0.55, 1)
-    r2.translate(0.45, 2.6, 0.25)
-    const r3 = new THREE.IcosahedronGeometry(0.50, 1)
-    r3.translate(-0.35, 2.55, -0.30)
-    const r4 = new THREE.IcosahedronGeometry(0.40, 1)
-    r4.translate(0.1, 3.0, 0.15)
-    parts.push(r1, r2, r3, r4)
+    // Deciduous: two overlapping low-poly spheres (detail 0 = 20 faces each)
+    const r1 = new THREE.IcosahedronGeometry(0.80, 0)
+    r1.translate(0, 2.2, 0)
+    const r2 = new THREE.IcosahedronGeometry(0.55, 0)
+    r2.translate(0.2, 2.7, 0.15)
+    parts.push(r1, r2)
   }
 
   const geo = mergeGeometries(parts)
