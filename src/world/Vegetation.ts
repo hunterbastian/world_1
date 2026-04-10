@@ -50,14 +50,14 @@ export class Vegetation {
       colorA: new THREE.Color(0x4a9e3f),
       colorB: new THREE.Color(0x2d7a35),
       trunk: new THREE.Color(0x5a3d28),
-      count: 900,
+      count: 2800,
     })
     const pineTrees = this.makeTreeInstanced({
       kind: 'pine',
       colorA: new THREE.Color(0x2a5e35),
       colorB: new THREE.Color(0x1a4528),
       trunk: new THREE.Color(0x4a3220),
-      count: 260,
+      count: 800,
     })
 
     this.object3d.add(forestTrees)
@@ -70,7 +70,7 @@ export class Vegetation {
 
     // Scatter instances with biome-dependent density.
     const half = opts.terrain.size * 0.5
-    const scatterAttempts = 6500
+    const scatterAttempts = 20000
     const tmp = new THREE.Object3D()
     let forestIdx = 0
     let pineIdx = 0

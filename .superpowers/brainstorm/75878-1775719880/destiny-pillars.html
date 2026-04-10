@@ -1,0 +1,84 @@
+<h2>Destiny Visual DNA — Shader Pillars</h2>
+<p class="subtitle">Which of these are most important for Mech World's feel? Select all that apply.</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="rim-backlight" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Dramatic Rim / Back Lighting</h3>
+      <p>Destiny's signature look. Objects glow at their edges when backlit — especially characters against the sky. Creates a sense of epic scale and atmosphere. Your RimLight.ts already does a basic version of this, but Destiny's is <strong>stronger, warmer, and varies with time of day</strong>.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        <strong>Current:</strong> Basic fresnel rim on MeshStandardMaterial, dusk boost<br>
+        <strong>Destiny-level:</strong> Per-material rim intensity, colored rim from sky gradient, rim on terrain edges too
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="atmosphere-haze" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Atmospheric Perspective / Distance Haze</h3>
+      <p>In Destiny, distant geometry doesn't just fade — it shifts color toward a soft atmospheric tint (cool blue in daylight, warm amber at dusk, deep violet at night). This replaces basic fog with <strong>depth-aware color grading</strong> that changes with lighting conditions.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        <strong>Current:</strong> FogExp2 + screen-space FogVeil (no real depth)<br>
+        <strong>Destiny-level:</strong> Depth-buffer-aware haze, sky-color-matched, biome-tinted
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="bloom-emissive" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Selective Bloom + Emissive Accents</h3>
+      <p>Destiny uses bloom sparingly on bright sources — sun, glowing mech eyes, energy weapons, loot drops. Not full-screen bloom haze, but <strong>targeted glow on emissive surfaces</strong>. Makes technology and magic feel alive.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        <strong>Current:</strong> No bloom at all<br>
+        <strong>Destiny-level:</strong> Threshold bloom pass, emissive channel on Walker mechs, campfire glow
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="color-grade" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Cinematic Color Grading</h3>
+      <p>Destiny desaturates midtones while keeping highlights warm and shadows cool. Gives a <strong>painterly, filmic quality</strong> — not photorealistic, not cel-shaded. Your ToonRamp + BiomePalette already color-grade, but Destiny's approach is more about contrast curves and split-toning.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        <strong>Current:</strong> Toon ramp (2-band) + biome palette tinting<br>
+        <strong>Destiny-level:</strong> Lift/gamma/gain, split-toning (warm highlights / cool shadows), vignette, contrast S-curve
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="contact-ao" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>Contact Shadows / SSAO</h3>
+      <p>Subtle darkening where objects meet surfaces — grass roots, mech feet on ground, rocks against terrain. Adds <strong>grounding and depth</strong> that makes the world feel solid instead of floaty.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        <strong>Current:</strong> Basic vertex AO on terrain slopes, nothing on objects<br>
+        <strong>Destiny-level:</strong> Screen-space AO (N8AO or custom), contact shadow for sun
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="sky-clouds" onclick="toggleSelect(this)">
+    <div class="letter">F</div>
+    <div class="content">
+      <h3>Epic Skybox + Volumetric Clouds</h3>
+      <p>Destiny's skies are dramatic — layered cloud decks, god rays punching through, nebulae and color gradients. Your CloudDome + GodRays are a start, but Destiny's clouds have <strong>real volume, self-shadowing, and silver lining</strong> effects.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        <strong>Current:</strong> CloudDome (fbm on sphere) + screen-space god rays<br>
+        <strong>Destiny-level:</strong> Multi-layer clouds, volumetric raymarching (perf-gated), dramatic gradients
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:24px; padding:16px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);">
+  <p style="margin:0; font-size:13px; color:#888;">
+    <strong>Performance note:</strong> Each pillar has a performance cost. A, B, D are cheap (shader-only). C and F are moderate (extra render passes). E is the most expensive (screen-space sampling). We'll tier everything so low-end still runs smooth.
+  </p>
+</div>

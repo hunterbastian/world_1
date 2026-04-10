@@ -1,4 +1,4 @@
-# World_1 — Tech Stack
+# Mech World — Tech Stack
 
 ## Runtime
 

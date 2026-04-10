@@ -1,6 +1,6 @@
 # Destiny 1 Visual Overhaul — Design Spec
 
-World_1's rendering pipeline gets a Destiny 1-inspired visual upgrade paired with a performance overhaul to maintain 60fps on wide vistas at the 1500x1500 world scale.
+Mech World's rendering pipeline gets a Destiny 1-inspired visual upgrade paired with a performance overhaul to maintain 60fps on wide vistas at the 1500x1500 world scale.
 
 ## Scope
 

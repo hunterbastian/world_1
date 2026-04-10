@@ -1,0 +1,184 @@
+<h2>Vegetation LOD — Distance Band Architecture</h2>
+<p class="subtitle">How trees render at different distances from the camera</p>
+
+<div style="position:relative; width:100%; max-width:720px; margin:20px auto; height:420px; background:rgba(255,255,255,0.02); border-radius:12px; border:1px solid rgba(255,255,255,0.06); overflow:hidden;">
+
+  <!-- Player at center -->
+  <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:10;">
+    <div style="width:12px; height:12px; background:#e8c547; border-radius:50%; box-shadow:0 0 12px rgba(232,197,71,0.5);"></div>
+    <div style="position:absolute; top:16px; left:50%; transform:translateX(-50%); font-size:10px; color:#e8c547; white-space:nowrap;">CAMERA</div>
+  </div>
+
+  <!-- Band 1: Full Detail (0-150u) -->
+  <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:160px; height:160px; border-radius:50%; border:2px solid rgba(100,200,120,0.5); background:rgba(100,200,120,0.06);"></div>
+  <div style="position:absolute; left:calc(50% + 55px); top:calc(50% - 88px); font-size:10px; color:#6c8;">
+    <strong>FULL DETAIL</strong><br>
+    <span style="color:#888;">0–150 units</span>
+  </div>
+
+  <!-- Band 2: Simplified (150-350u) -->
+  <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:320px; height:320px; border-radius:50%; border:2px dashed rgba(100,160,220,0.4); background:rgba(100,160,220,0.03);"></div>
+  <div style="position:absolute; left:calc(50% + 120px); top:calc(50% - 168px); font-size:10px; color:#69b;">
+    <strong>REDUCED</strong><br>
+    <span style="color:#888;">150–350 units</span>
+  </div>
+
+  <!-- Band 3: Billboard (350-600u) -->
+  <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:520px; height:520px; border-radius:50%; border:2px dotted rgba(200,160,100,0.3); background:rgba(200,160,100,0.02);"></div>
+  <div style="position:absolute; left:calc(50% + 195px); top:calc(50% - 265px); font-size:10px; color:#c9a35f;">
+    <strong>BILLBOARD</strong><br>
+    <span style="color:#888;">350–600 units</span>
+  </div>
+
+  <!-- Beyond: culled -->
+  <div style="position:absolute; right:12px; top:12px; font-size:10px; color:#666; text-align:right;">
+    <strong>CULLED</strong><br>
+    <span style="color:#555;">600+ units</span><br>
+    <span style="color:#555; font-size:9px;">atmospheric haze covers</span>
+  </div>
+
+  <!-- Sample trees in band 1 -->
+  <div style="position:absolute; left:calc(50% - 30px); top:calc(50% - 45px); font-size:16px;">🌳</div>
+  <div style="position:absolute; left:calc(50% + 20px); top:calc(50% + 25px); font-size:16px;">🌲</div>
+  <div style="position:absolute; left:calc(50% - 50px); top:calc(50% + 15px); font-size:14px;">🌳</div>
+
+  <!-- Sample trees in band 2 (smaller = less detail) -->
+  <div style="position:absolute; left:calc(50% - 110px); top:calc(50% - 90px); font-size:12px; opacity:0.8;">🌳</div>
+  <div style="position:absolute; left:calc(50% + 85px); top:calc(50% + 75px); font-size:12px; opacity:0.8;">🌲</div>
+
+  <!-- Sample trees in band 3 (tiny = billboard) -->
+  <div style="position:absolute; left:calc(50% - 180px); top:calc(50% + 110px); font-size:9px; opacity:0.5;">🌳</div>
+  <div style="position:absolute; left:calc(50% + 160px); top:calc(50% - 145px); font-size:9px; opacity:0.5;">🌲</div>
+</div>
+
+<!-- Spatial Grid -->
+<h3 style="margin-top:32px;">Spatial Grid System</h3>
+<p class="subtitle">World divided into cells. Each cell = its own InstancedMesh = its own frustum cull.</p>
+
+<div style="position:relative; width:100%; max-width:400px; margin:16px auto; aspect-ratio:1; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.06); display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr); gap:1px;">
+
+  <!-- 8x8 grid cells, some highlighted as "visible" -->
+  <div style="background:rgba(100,200,120,0.15); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">3</div>
+  <div style="background:rgba(100,200,120,0.15); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">5</div>
+  <div style="background:rgba(100,200,120,0.10); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">2</div>
+  <div style="background:rgba(100,160,220,0.12); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#69b;">7</div>
+  <div style="background:rgba(100,160,220,0.12); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#69b;">4</div>
+  <div style="background:rgba(200,160,100,0.10); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">6</div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+
+  <div style="background:rgba(100,200,120,0.15); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">4</div>
+  <div style="background:rgba(100,200,120,0.25); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">12</div>
+  <div style="background:rgba(100,200,120,0.20); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">8</div>
+  <div style="background:rgba(100,160,220,0.12); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#69b;">9</div>
+  <div style="background:rgba(100,160,220,0.12); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#69b;">5</div>
+  <div style="background:rgba(200,160,100,0.10); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">3</div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+
+  <div style="background:rgba(100,200,120,0.10); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">2</div>
+  <div style="background:rgba(100,200,120,0.20); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">9</div>
+  <div style="background:rgba(100,200,120,0.30); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:9px; color:#fff;">★</div>
+  <div style="background:rgba(100,200,120,0.25); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">11</div>
+  <div style="background:rgba(100,160,220,0.12); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#69b;">6</div>
+  <div style="background:rgba(200,160,100,0.10); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">4</div>
+  <div style="background:rgba(200,160,100,0.08); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">2</div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+
+  <div style="background:rgba(100,160,220,0.12); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#69b;">3</div>
+  <div style="background:rgba(100,200,120,0.20); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">7</div>
+  <div style="background:rgba(100,200,120,0.25); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">10</div>
+  <div style="background:rgba(100,200,120,0.15); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#6c8;">6</div>
+  <div style="background:rgba(100,160,220,0.12); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#69b;">8</div>
+  <div style="background:rgba(200,160,100,0.10); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">5</div>
+  <div style="background:rgba(200,160,100,0.08); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">1</div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(100,160,220,0.12); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#69b;">4</div>
+  <div style="background:rgba(100,160,220,0.12); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#69b;">5</div>
+  <div style="background:rgba(100,160,220,0.12); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#69b;">7</div>
+  <div style="background:rgba(200,160,100,0.10); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">3</div>
+  <div style="background:rgba(200,160,100,0.08); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">2</div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(200,160,100,0.08); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">1</div>
+  <div style="background:rgba(200,160,100,0.10); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">3</div>
+  <div style="background:rgba(200,160,100,0.08); border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#c9a;">2</div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+  <div style="background:rgba(60,60,60,0.15); border-radius:2px;"></div>
+</div>
+
+<div style="display:flex; gap:16px; justify-content:center; margin:12px 0 8px; flex-wrap:wrap;">
+  <span style="font-size:11px; color:#6c8;">■ Full detail</span>
+  <span style="font-size:11px; color:#69b;">■ Reduced</span>
+  <span style="font-size:11px; color:#c9a;">■ Billboard</span>
+  <span style="font-size:11px; color:#555;">■ Culled</span>
+  <span style="font-size:11px; color:#fff;">★ Camera</span>
+</div>
+<p style="text-align:center; font-size:11px; color:#666; margin:0;">Numbers = tree count per cell. Each cell is its own InstancedMesh with tight bounding box.</p>
+
+<!-- LOD detail comparison -->
+<h3 style="margin-top:32px;">LOD Geometry Comparison</h3>
+
+<div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin:16px 0;">
+
+  <div style="padding:16px; background:rgba(100,200,120,0.06); border:1px solid rgba(100,200,120,0.2); border-radius:8px; text-align:center;">
+    <div style="font-size:11px; color:#6c8; font-weight:600; margin-bottom:8px;">FULL DETAIL</div>
+    <div style="font-size:36px; margin:8px 0;">🌳</div>
+    <div style="font-size:12px; color:#aaa;">CylinderGeometry trunk<br>DodecahedronGeometry canopy</div>
+    <div style="margin-top:8px; font-size:11px; color:#888;">~20 vertices/tree</div>
+    <div style="font-size:11px; color:#6c8;">Wind sway: full</div>
+    <div style="font-size:11px; color:#888;">0–150 units</div>
+  </div>
+
+  <div style="padding:16px; background:rgba(100,160,220,0.06); border:1px solid rgba(100,160,220,0.2); border-radius:8px; text-align:center;">
+    <div style="font-size:11px; color:#69b; font-weight:600; margin-bottom:8px;">REDUCED</div>
+    <div style="font-size:36px; margin:8px 0; opacity:0.8;">🌳</div>
+    <div style="font-size:12px; color:#aaa;">Same geometry<br>No wind animation</div>
+    <div style="margin-top:8px; font-size:11px; color:#888;">~20 vertices/tree</div>
+    <div style="font-size:11px; color:#69b;">Wind sway: off</div>
+    <div style="font-size:11px; color:#888;">150–350 units</div>
+  </div>
+
+  <div style="padding:16px; background:rgba(200,160,100,0.06); border:1px solid rgba(200,160,100,0.2); border-radius:8px; text-align:center;">
+    <div style="font-size:11px; color:#c9a; font-weight:600; margin-bottom:8px;">BILLBOARD</div>
+    <div style="font-size:36px; margin:8px 0; opacity:0.5;">🌳</div>
+    <div style="font-size:12px; color:#aaa;">Camera-facing quad<br>Colored silhouette</div>
+    <div style="margin-top:8px; font-size:11px; color:#888;">4 vertices/tree</div>
+    <div style="font-size:11px; color:#c9a;">Wind sway: off</div>
+    <div style="font-size:11px; color:#888;">350–600 units</div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px; padding:16px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);">
+  <p style="margin:0 0 8px; font-size:13px; color:#aaa;"><strong>Draw call savings on a typical vista:</strong></p>
+  <div style="font-size:12px; color:#888; line-height:1.8;">
+    <strong>Before:</strong> 2 draw calls (deciduous + pine), all 3600 instances always<br>
+    <strong>After:</strong> ~12-16 draw calls (visible cells only), ~800-1200 instances in frustum<br>
+    <strong>Net:</strong> More draw calls, but <strong>~65-70% fewer vertices processed</strong> on average
+  </div>
+</div>

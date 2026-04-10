@@ -2,12 +2,17 @@ export type InputState = {
   forward: number
   right: number
   sprint: boolean
+  jump: boolean
+  crouch: boolean
   mouseDeltaX: number
   mouseDeltaY: number
   journalToggle: boolean
   interactHeld: boolean
   attackDown: boolean
   escapePressed: boolean
+  devFlyToggle: boolean
+  flyUp: boolean
+  flyDown: boolean
 }
 
 export class Input {
@@ -16,10 +21,13 @@ export class Input {
   private mouseDX = 0
   private mouseDY = 0
   private sprint = false
+  private jumpDown = false
+  private crouchDown = false
   private journalToggle = false
   private interact = false
   private attackDown = false
   private escapePressed = false
+  private devFlyToggle = false
   private _locked = false
 
   constructor(element: HTMLElement) {
@@ -57,19 +65,27 @@ export class Input {
       forward,
       right,
       sprint: this.sprint,
+      jump: this.jumpDown,
+      crouch: this.crouchDown,
       mouseDeltaX: this._locked ? this.mouseDX : 0,
       mouseDeltaY: this._locked ? this.mouseDY : 0,
       journalToggle: this.journalToggle,
       interactHeld: this.interact,
       attackDown: this.attackDown,
       escapePressed: this.escapePressed,
+      devFlyToggle: this.devFlyToggle,
+      flyUp: this.keys.has('Space'),
+      flyDown: this.keys.has('ControlLeft') || this.keys.has('KeyC'),
     }
 
     this.mouseDX = 0
     this.mouseDY = 0
+    this.jumpDown = false
+    this.crouchDown = false
     this.journalToggle = false
     this.attackDown = false
     this.escapePressed = false
+    this.devFlyToggle = false
     return out
   }
 
@@ -110,7 +126,10 @@ export class Input {
       return
     }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.sprint = true
+    if (e.code === 'Space') this.jumpDown = true
+    if (e.code === 'KeyC' || e.code === 'ControlLeft') this.crouchDown = true
     if (e.code === 'KeyE') this.interact = true
+    if (e.code === 'F5') { e.preventDefault(); this.devFlyToggle = true }
     this.keys.add(e.code)
   }
 

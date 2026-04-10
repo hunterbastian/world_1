@@ -57,7 +57,7 @@ export class WalkerMechs {
     this.object3d.name = 'WalkerMechs'
 
     const rng = makeRng(`${opts.seed}:walkers`)
-    const minSep = 60
+    const minSep = 120
     const placed: THREE.Vector3[] = []
     const ruins = ruinPoiPositions(opts.pois)
 
@@ -91,7 +91,9 @@ export class WalkerMechs {
   ) {
     const mech = new WalkerMech(tier, name)
     const y = this.terrain.heightAtXZ(pos.x, pos.z)
-    mech.object3d.position.set(pos.x, y - 0.3, pos.z)
+    const walkerScale = tier === 'assault' ? 3.5 : 3.0
+    mech.object3d.scale.setScalar(walkerScale)
+    mech.object3d.position.set(pos.x, y - 0.3 * walkerScale, pos.z)
     mech.object3d.rotation.y = yaw01 * Math.PI * 2
     this.object3d.add(mech.object3d)
     this.walkers.push(mech)
@@ -137,7 +139,7 @@ export class WalkerMechs {
     names: string[]
   ) {
     const half = this.terrain.size * 0.5
-    const samples = 900
+    const samples = 2800
     type Cand = { p: THREE.Vector3; score: number; yaw: number }
     const cands: Cand[] = []
 
@@ -181,7 +183,7 @@ export class WalkerMechs {
     names: string[]
   ) {
     const half = this.terrain.size * 0.5
-    const samples = 1100
+    const samples = 3400
     type Cand = { p: THREE.Vector3; score: number; yaw: number }
     const cands: Cand[] = []
 
@@ -189,19 +191,21 @@ export class WalkerMechs {
       const x = (rng() * 2 - 1) * half
       const z = (rng() * 2 - 1) * half
       const biome = this.terrain.biomeAtXZ(x, z)
-      if (biome === 'grassy_plains') continue
+      // Assaults only on low ground — never on mountains
+      if (biome === 'snowy_mountains') continue
 
       const h = this.terrain.heightAtXZ(x, z)
       if (h < this.terrain.seaLevel + 2) continue
+      if (h > 30) continue // hard cap: no mountaintop spawns
       const slope = this.terrain.slopeAtXZ(x, z)
-      if (slope >= 0.32) continue
+      if (slope >= 0.25) continue // flatter ground for big mechs
 
       const p = new THREE.Vector3(x, h, z)
       if (!minDistToPlaced(p, placed, minSep)) continue
 
       let biomeScore = 0
       if (biome === 'deep_forest') biomeScore = 3.2
-      else if (biome === 'snowy_mountains') biomeScore = 1.1
+      else if (biome === 'grassy_plains') biomeScore = 2.0
 
       let ruinScore = 0
       for (const r of ruinPositions) {
@@ -209,9 +213,10 @@ export class WalkerMechs {
         if (d < 95) ruinScore = Math.max(ruinScore, 2.8 * (1 - d / 95))
       }
 
-      const heightScore = THREE.MathUtils.clamp((h - 4) / 42, 0, 1) * 0.55
+      // Prefer low ground — penalize height instead of rewarding it
+      const heightPenalty = THREE.MathUtils.clamp((h - 10) / 30, 0, 1) * 0.8
       const slopePenalty = slope * 1.2
-      const score = biomeScore + ruinScore + heightScore - slopePenalty + rng() * 0.06
+      const score = biomeScore + ruinScore - heightPenalty - slopePenalty + rng() * 0.06
       if (score < 0.35) continue
       cands.push({ p, score, yaw: rng() })
     }

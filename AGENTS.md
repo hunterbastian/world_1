@@ -1,4 +1,4 @@
-# World_1 — AGENTS.md
+# Mech World — AGENTS.md
 
 ## Project Overview
 
@@ -30,7 +30,7 @@ Third-person exploration + mech-piloting game built with Three.js. Explore proce
 
 ## Learned Workspace Facts
 
-- Refers to this repository as world_1 as well as threejs-biome-world.
+- Repository and package name: `mech-world` (GitHub: hunterbastian/mech-world).
 - World design excludes a swamp biome; procedural map targets grasslands, mountainlands, and forestlands.
 - Known bug: player can spawn trapped between mountains. Spawn should prefer grasslands biome with low slope.
 - Walker mechs use names drawn from Greek mythology and Viking-inspired naming.

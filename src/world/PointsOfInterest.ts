@@ -88,7 +88,10 @@ export class PointsOfInterest {
 
   private spawnPOIs(rng: () => number) {
     const half = this.terrain.size * 0.5
-    const types: POIType[] = ['ruin', 'shrine', 'camp', 'ruin', 'camp', 'shrine']
+    const types: POIType[] = [
+      'ruin', 'shrine', 'camp', 'ruin', 'camp', 'shrine',
+      'ruin', 'camp', 'shrine', 'ruin', 'camp', 'shrine', 'ruin', 'camp',
+    ]
 
     for (let i = 0; i < types.length; i++) {
       const type = types[i]!

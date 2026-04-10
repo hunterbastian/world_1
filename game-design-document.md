@@ -1,4 +1,4 @@
-# World_1 — Game Design Document
+# Mech World — Game Design Document
 
 ## Vision
 

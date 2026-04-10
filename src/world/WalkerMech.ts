@@ -58,9 +58,9 @@ function tierDims(tier: WalkerTier): TierDims {
       footH: 0.065,
       toeLen: 0.20,
       toeW: 0.048,
-      hullColor: 0x8a8f98,
-      armorColor: 0xa2a8b2,
-      jointColor: 0x3c4048,
+      hullColor: 0x9a8868,    // weathered brass
+      armorColor: 0xc4b08a,   // light bronze plate
+      jointColor: 0x3e3228,   // dark corroded bronze
     }
   }
   return {
@@ -87,9 +87,9 @@ function tierDims(tier: WalkerTier): TierDims {
     footH: 0.12,
     toeLen: 0.34,
     toeW: 0.085,
-    hullColor: 0x6e7480,
-    armorColor: 0x8c929c,
-    jointColor: 0x32363e,
+    hullColor: 0x7a6848,     // darker weathered brass
+    armorColor: 0xb09870,    // bronze plate
+    jointColor: 0x2e2418,    // dark corroded bronze
   }
 }
 
@@ -128,11 +128,41 @@ export type WalkerLimbs = {
 
 /* ── Walker model ──────────────────────────────────────────────── */
 
+export type WalkerStompEvent = {
+  position: THREE.Vector3
+  intensity: number // 0-1, based on tier and movement
+}
+
 export class WalkerMech {
   public readonly object3d: THREE.Group
   public readonly tier: WalkerTier
   public readonly name: string
   public readonly limbs: WalkerLimbs
+  public readonly stompListeners = new Set<(e: WalkerStompEvent) => void>()
+
+  // Stomp phase tracking
+  private stompPhase = 0
+  private prevStompSin = 0
+
+  // Activation state
+  public activated = false
+  private readonly activationListeners = new Set<(mech: WalkerMech) => void>()
+
+  onActivation(cb: (mech: WalkerMech) => void) {
+    this.activationListeners.add(cb)
+    return () => this.activationListeners.delete(cb)
+  }
+
+  activate() {
+    if (this.activated) return
+    this.activated = true
+    for (const cb of this.activationListeners) cb(this)
+  }
+
+  onStomp(cb: (e: WalkerStompEvent) => void) {
+    this.stompListeners.add(cb)
+    return () => this.stompListeners.delete(cb)
+  }
 
   constructor(tier: WalkerTier, name: string) {
     this.tier = tier
@@ -142,14 +172,19 @@ export class WalkerMech {
 
     const d = tierDims(tier)
 
-    const hullMat = new THREE.MeshStandardMaterial({ color: d.hullColor, roughness: 0.52, metalness: 0.62 })
-    const armorMat = new THREE.MeshStandardMaterial({ color: d.armorColor, roughness: 0.45, metalness: 0.68 })
-    const jointMat = new THREE.MeshStandardMaterial({ color: d.jointColor, roughness: 0.72, metalness: 0.55 })
+    const hullMat = new THREE.MeshStandardMaterial({ color: d.hullColor, roughness: 0.62, metalness: 0.72 })
+    const armorMat = new THREE.MeshStandardMaterial({ color: d.armorColor, roughness: 0.55, metalness: 0.68 })
+    const jointMat = new THREE.MeshStandardMaterial({ color: d.jointColor, roughness: 0.78, metalness: 0.55 })
     const panelMat = new THREE.MeshStandardMaterial({
-      color: shadeColor(d.hullColor, 0.78), roughness: 0.92, metalness: 0.18,
+      color: shadeColor(d.hullColor, 0.72), roughness: 0.88, metalness: 0.25,
     })
-    const visorMat = new THREE.MeshStandardMaterial({
-      color: 0x0a0e14, emissive: 0x1a2a4a, emissiveIntensity: 0.3, roughness: 0.5, metalness: 0.0,
+    // Vex cyclops eye — glowing red-orange
+    const eyeMat = new THREE.MeshStandardMaterial({
+      color: 0x220800, emissive: 0xff4400, emissiveIntensity: 2.5, roughness: 0.2, metalness: 0.0,
+    })
+    // Radiolaria glow — milky white energy in joints/seams
+    const radiolariaMat = new THREE.MeshStandardMaterial({
+      color: 0xe8e0d0, emissive: 0xf0e8d0, emissiveIntensity: 0.8, roughness: 0.3, metalness: 0.0,
     })
 
     /* ============ HULL (dome body) ============ */
@@ -157,7 +192,7 @@ export class WalkerMech {
     const hull = new THREE.Group()
     hull.name = 'Hull'
 
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(d.bodyR, 16, 12), hullMat)
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(d.bodyR, 24, 16), hullMat)
     dome.scale.set(1.0, d.bodySquashY, d.bodyStretchZ)
     dome.position.y = d.hipY
     shadow(dome)
@@ -172,7 +207,7 @@ export class WalkerMech {
     hull.add(belly)
 
     const collar = new THREE.Mesh(
-      new THREE.CylinderGeometry(d.bodyR * 1.06, d.bodyR * 1.10, d.collarH, 16),
+      new THREE.CylinderGeometry(d.bodyR * 1.06, d.bodyR * 1.10, d.collarH, 24),
       armorMat,
     )
     collar.scale.z = d.bodyStretchZ
@@ -202,13 +237,45 @@ export class WalkerMech {
     shadow(bustle)
     hull.add(bustle)
 
+    // Radiolaria core — glowing orb visible through belly
+    const coreR = d.bodyR * 0.28
+    const core = new THREE.Mesh(new THREE.SphereGeometry(coreR, 16, 12), radiolariaMat)
+    core.position.set(0, d.hipY - d.bodyR * d.bodySquashY * 0.45, 0)
+    shadow(core)
+    hull.add(core)
+
+    // Core housing ring
+    const coreRing = new THREE.Mesh(
+      new THREE.TorusGeometry(coreR * 1.3, coreR * 0.15, 8, 20),
+      jointMat,
+    )
+    coreRing.position.copy(core.position)
+    coreRing.rotation.x = Math.PI / 2
+    shadow(coreRing)
+    hull.add(coreRing)
+
+    // Decorative seam lines on hull (Vex geometric patterns)
+    for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+      const seam = new THREE.Mesh(
+        new THREE.BoxGeometry(0.02, d.bodyR * d.bodySquashY * 1.4, 0.02),
+        radiolariaMat,
+      )
+      seam.position.set(
+        Math.cos(angle) * d.bodyR * 0.95,
+        d.hipY,
+        Math.sin(angle) * d.bodyR * d.bodyStretchZ * 0.95,
+      )
+      shadow(seam)
+      hull.add(seam)
+    }
+
     /* ============ HEAD (sensor turret) ============ */
 
     const head = new THREE.Group()
     head.name = 'Head'
 
     const neckRing = new THREE.Mesh(
-      new THREE.TorusGeometry(d.headW * 0.55, Math.max(0.025, d.headW * 0.065), 6, 16),
+      new THREE.TorusGeometry(d.headW * 0.55, Math.max(0.025, d.headW * 0.065), 8, 20),
       jointMat,
     )
     neckRing.rotation.x = Math.PI / 2
@@ -231,19 +298,40 @@ export class WalkerMech {
     shadow(headCap)
     head.add(headCap)
 
-    const visor = new THREE.Mesh(
-      new THREE.BoxGeometry(d.headW * 0.78, d.headH * 0.14, 0.02),
-      visorMat,
-    )
-    visor.position.set(0, d.headH * 0.50, -d.headD * 0.51)
-    shadow(visor)
-    head.add(visor)
+    // Vex cyclops eye — single glowing orb
+    const eyeR = d.headW * 0.22
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 12, 8), eyeMat)
+    eye.position.set(0, d.headH * 0.48, -d.headD * 0.48)
+    shadow(eye)
+    head.add(eye)
 
-    const sensorR = Math.max(0.022, d.headW * 0.07)
+    // Eye socket ring
+    const socketRing = new THREE.Mesh(
+      new THREE.TorusGeometry(eyeR * 1.25, eyeR * 0.18, 8, 16),
+      jointMat,
+    )
+    socketRing.position.copy(eye.position)
+    socketRing.position.z -= 0.01
+    shadow(socketRing)
+    head.add(socketRing)
+
+    // Radiolaria vein lines on head
+    for (const sx of [-1, 1]) {
+      const vein = new THREE.Mesh(
+        new THREE.BoxGeometry(d.headW * 0.04, d.headH * 0.6, 0.015),
+        radiolariaMat,
+      )
+      vein.position.set(sx * d.headW * 0.32, d.headH * 0.45, -d.headD * 0.505)
+      shadow(vein)
+      head.add(vein)
+    }
+
+    // Side sensor nubs
+    const sensorR = Math.max(0.022, d.headW * 0.06)
     const sensorGeo = new THREE.SphereGeometry(sensorR, 6, 4)
     for (const sx of [-1, 1]) {
-      const sensor = new THREE.Mesh(sensorGeo, jointMat)
-      sensor.position.set(sx * d.headW * 0.44, d.headH * 0.32, -d.headD * 0.32)
+      const sensor = new THREE.Mesh(sensorGeo, radiolariaMat)
+      sensor.position.set(sx * d.headW * 0.48, d.headH * 0.32, -d.headD * 0.25)
       shadow(sensor)
       head.add(sensor)
     }
@@ -263,7 +351,7 @@ export class WalkerMech {
 
       const pylonR = d.upperR * 0.48
       const pylon = new THREE.Mesh(
-        new THREE.CylinderGeometry(pylonR, pylonR * 0.90, d.pylonLen, 6),
+        new THREE.CylinderGeometry(pylonR, pylonR * 0.90, d.pylonLen, 10),
         jointMat,
       )
       pylon.rotation.z = side * Math.PI / 2
@@ -272,7 +360,7 @@ export class WalkerMech {
       wpn.add(pylon)
 
       const barrel = new THREE.Mesh(
-        new THREE.CylinderGeometry(d.barrelR, d.barrelR * 0.88, d.barrelLen, 8),
+        new THREE.CylinderGeometry(d.barrelR, d.barrelR * 0.88, d.barrelLen, 12),
         jointMat,
       )
       barrel.rotation.x = Math.PI / 2
@@ -282,7 +370,7 @@ export class WalkerMech {
 
       const muzzleLen = d.barrelLen * 0.09
       const muzzle = new THREE.Mesh(
-        new THREE.CylinderGeometry(d.barrelR * 1.35, d.barrelR * 1.15, muzzleLen, 6),
+        new THREE.CylinderGeometry(d.barrelR * 1.35, d.barrelR * 1.15, muzzleLen, 10),
         jointMat,
       )
       muzzle.rotation.x = Math.PI / 2
@@ -328,11 +416,20 @@ export class WalkerMech {
       legGroup.position.set(hipX, hipAttachY, hipZ)
 
       const hipBall = new THREE.Mesh(
-        new THREE.SphereGeometry(d.upperR * 1.45, 8, 6),
+        new THREE.SphereGeometry(d.upperR * 1.45, 10, 8),
         jointMat,
       )
       shadow(hipBall)
       legGroup.add(hipBall)
+
+      // Radiolaria glow ring at hip
+      const hipGlow = new THREE.Mesh(
+        new THREE.TorusGeometry(d.upperR * 1.2, d.upperR * 0.12, 6, 16),
+        radiolariaMat,
+      )
+      hipGlow.rotation.x = Math.PI / 2
+      shadow(hipGlow)
+      legGroup.add(hipGlow)
 
       const restSplayZ = sx * 0.48
       const restLeanX = isFront ? -0.18 : 0.18
@@ -347,7 +444,7 @@ export class WalkerMech {
       upperGroup.rotation.x = restLeanX
 
       const upperMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(d.upperR, d.upperR * 0.82, d.upperLen, 8),
+        new THREE.CylinderGeometry(d.upperR, d.upperR * 0.82, d.upperLen, 12),
         jointMat,
       )
       upperMesh.position.y = -d.upperLen * 0.5
@@ -366,12 +463,22 @@ export class WalkerMech {
 
       const kneeR = (d.upperR + d.lowerR) * 0.56
       const kneeBall = new THREE.Mesh(
-        new THREE.SphereGeometry(kneeR, 8, 6),
+        new THREE.SphereGeometry(kneeR, 10, 8),
         jointMat,
       )
       kneeBall.position.y = -d.upperLen
       shadow(kneeBall)
       upperGroup.add(kneeBall)
+
+      // Radiolaria glow ring at knee
+      const kneeGlow = new THREE.Mesh(
+        new THREE.TorusGeometry(kneeR * 0.9, kneeR * 0.15, 6, 16),
+        radiolariaMat,
+      )
+      kneeGlow.position.y = -d.upperLen
+      kneeGlow.rotation.x = Math.PI / 2
+      shadow(kneeGlow)
+      upperGroup.add(kneeGlow)
 
       const kneeShroud = new THREE.Mesh(
         new THREE.BoxGeometry(d.upperR * 2.3, d.upperR * 1.7, d.upperR * 2.1),
@@ -389,7 +496,7 @@ export class WalkerMech {
       lowerGroup.rotation.x = restKneeBend
 
       const lowerMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(d.lowerR, d.lowerR * 0.78, d.lowerLen, 8),
+        new THREE.CylinderGeometry(d.lowerR, d.lowerR * 0.78, d.lowerLen, 12),
         jointMat,
       )
       lowerMesh.position.y = -d.lowerLen * 0.5
@@ -407,12 +514,22 @@ export class WalkerMech {
       /* -- ankle -- */
 
       const ankleBall = new THREE.Mesh(
-        new THREE.SphereGeometry(d.lowerR * 0.85, 7, 5),
+        new THREE.SphereGeometry(d.lowerR * 0.85, 10, 8),
         jointMat,
       )
       ankleBall.position.y = -d.lowerLen
       shadow(ankleBall)
       lowerGroup.add(ankleBall)
+
+      // Radiolaria glow at ankle
+      const ankleGlow = new THREE.Mesh(
+        new THREE.TorusGeometry(d.lowerR * 0.7, d.lowerR * 0.12, 6, 12),
+        radiolariaMat,
+      )
+      ankleGlow.position.y = -d.lowerLen
+      ankleGlow.rotation.x = Math.PI / 2
+      shadow(ankleGlow)
+      lowerGroup.add(ankleGlow)
 
       /* -- foot + toes -- */
 
@@ -468,10 +585,24 @@ export class WalkerMech {
     addOutlineShell(this.object3d, { thickness: outlineThick, color: 0x06060c, alpha: 0.65 })
   }
 
-  update(_dt: number) {}
+  update(dt: number) {
+    // Even dormant walkers have idle animation stomp detection
+    // The idle bob creates subtle ground contact events
+    this.stompPhase += dt * 0.45 // matches idle breathing frequency
+    const stompSin = Math.sin(this.stompPhase * Math.PI * 2)
+
+    // Detect downward zero-crossing (foot hitting ground)
+    if (this.prevStompSin > 0 && stompSin <= 0) {
+      const intensity = this.tier === 'assault' ? 0.4 : 0.25 // idle stomps are subtle
+      for (const cb of this.stompListeners) {
+        cb({ position: this.object3d.position, intensity })
+      }
+    }
+    this.prevStompSin = stompSin
+  }
 }
 
-/* ── Procedural animation ──────────────────────────────────────── */
+/* ── Procedural animation — heavy, mechanical, weighty ────────── */
 
 const _walkerStride = { phase: 0 }
 
@@ -488,52 +619,89 @@ export function animateWalker(
   const t = _walkerStride.phase
   const p = phase * Math.PI * 2
 
-  /* ---- idle ---- */
-  const idleBob = Math.sin(t * 0.8) * 0.018 * idleBlend
-  const idleRock = Math.sin(t * 0.5) * 0.008 * idleBlend
-  const idleHeadNod = Math.sin(t * 0.7) * 0.015 * idleBlend
+  /* ---- idle: heavy machine at rest, hydraulic hum ---- */
+  // Slow, heavy breathing — these are massive machines
+  const idleBob = Math.sin(t * 0.45) * 0.025 * idleBlend
+  const idleRock = Math.sin(t * 0.3) * 0.006 * idleBlend
+  const idleHeadScan = Math.sin(t * 0.22) * 0.035 * idleBlend // slow head scan
+  const idleHeadNod = Math.sin(t * 0.55) * 0.012 * idleBlend
 
-  limbs.weaponL.rotation.x = Math.sin(t * 0.4) * 0.012 * idleBlend
-  limbs.weaponR.rotation.x = Math.sin(t * 0.4 + 0.5) * 0.012 * idleBlend
+  // Weapons drift slowly, as if tracking
+  limbs.weaponL.rotation.x = Math.sin(t * 0.25) * 0.018 * idleBlend
+  limbs.weaponR.rotation.x = Math.sin(t * 0.25 + 0.8) * 0.018 * idleBlend
+  // Slight weapon droop under gravity
+  limbs.weaponL.rotation.z = 0.015 * idleBlend
+  limbs.weaponR.rotation.z = -0.015 * idleBlend
 
-  /* ---- walk / trot ---- */
-  const legSwing = 0.16 * walkBlend
-  const kneeExtra = 0.22 * walkBlend
-  const bodyBob = 0.025 * walkBlend
-  const bodyRoll = 0.016 * walkBlend
-  const headCounter = 0.010 * walkBlend
+  /* ---- walk / trot: heavy stomping gait ---- */
+  // More exaggerated leg swing — these legs carry real weight
+  const legSwing = 0.24 * walkBlend
+  const kneeExtra = 0.35 * walkBlend
+  // Heavy footfall: sharp down, slow lift (asymmetric bob)
+  const rawBob = Math.sin(p * 2)
+  const footfallBob = (rawBob > 0
+    ? rawBob * 0.015  // slow lift phase
+    : rawBob * rawBob * -0.045  // sharp impact phase — squared for punch
+  ) * walkBlend
+  const bodyRoll = 0.024 * walkBlend
+  const bodyPitch = 0.012 * walkBlend
+  const headCounter = 0.018 * walkBlend
+
+  // Weapon recoil/sway during walk — they have mass
+  const weaponWalkSway = Math.sin(p) * 0.022 * walkBlend
+  limbs.weaponL.rotation.x += weaponWalkSway
+  limbs.weaponR.rotation.x += -weaponWalkSway * 0.7
+  limbs.weaponL.rotation.z += Math.sin(p * 2) * 0.008 * walkBlend
+  limbs.weaponR.rotation.z -= Math.sin(p * 2) * 0.008 * walkBlend
 
   for (let i = 0; i < limbs.legs.length; i++) {
     const leg = limbs.legs[i]
+    // Diagonal gait: FL+RR together, FR+RL together (like a real quadruped)
     const pairPhase = (i === 0 || i === 3) ? p : p + Math.PI
     const fwdSign = leg.isFront ? 1 : -1
 
-    const idleMicro = Math.sin(t * 0.6 + i * 1.5) * 0.016 * idleBlend
+    const idleMicro = Math.sin(t * 0.4 + i * 1.8) * 0.012 * idleBlend
+    // Idle weight shift — legs subtly adjust under body mass
+    const idleWeightShift = Math.sin(t * 0.18 + i * Math.PI * 0.5) * 0.008 * idleBlend
 
+    // Leg swing with asymmetric timing — fast forward, slow back (power stroke)
+    const swingRaw = Math.sin(pairPhase)
+    const powerStroke = swingRaw > 0
+      ? swingRaw * 0.7  // forward: slower
+      : swingRaw * 1.3  // back: faster push
     leg.upper.rotation.x = leg.restUpperX
-      + Math.sin(pairPhase) * legSwing * fwdSign
-      + idleMicro
+      + powerStroke * legSwing * fwdSign
+      + idleMicro + idleWeightShift
     leg.upper.rotation.z = leg.restUpperZ
-      + Math.cos(pairPhase) * 0.025 * walkBlend
+      + Math.cos(pairPhase) * 0.035 * walkBlend
 
-    const lift = Math.max(0, Math.sin(pairPhase))
+    // Knee: high lift, sharp plant — like a horse's gait
+    const liftRaw = Math.max(0, Math.sin(pairPhase))
+    const lift = liftRaw * liftRaw // squared for sharper lift-plant curve
     leg.lower.rotation.x = leg.restLowerX
       + lift * kneeExtra
       - idleMicro * 0.35
 
+    // Foot: compensate to stay roughly flat, with toe-plant on landing
+    const toePlant = Math.max(0, -Math.sin(pairPhase)) * 0.08 * walkBlend
     leg.foot.rotation.x = leg.restFootX
-      - Math.sin(pairPhase) * legSwing * fwdSign * 0.45
-      - lift * kneeExtra * 0.32
+      - powerStroke * legSwing * fwdSign * 0.5
+      - lift * kneeExtra * 0.35
+      + toePlant
   }
 
-  /* ---- hull dynamics ---- */
+  /* ---- hull dynamics: heavy mass transfer ---- */
   limbs.hull.position.y = limbs.restHullY
-    + Math.abs(Math.sin(p * 2)) * bodyBob
+    + footfallBob
     + idleBob
+  // Roll into each step (weight transfer side to side)
   limbs.hull.rotation.z = Math.sin(p) * bodyRoll + idleRock
-  limbs.hull.rotation.x = -Math.abs(Math.sin(p * 0.5)) * 0.007 * walkBlend
+  // Pitch: nose dips slightly on each footfall
+  limbs.hull.rotation.x = -Math.abs(Math.sin(p * 0.5)) * bodyPitch + Math.sin(t * 0.3) * 0.004 * idleBlend
 
-  /* ---- head counter-motion ---- */
+  /* ---- head: counter-stabilization like a bird ---- */
+  // Head counters hull motion to stay level — looks intelligent
   limbs.head.rotation.x = -Math.sin(p) * headCounter + idleHeadNod
-  limbs.head.rotation.z = -Math.sin(p) * bodyRoll * 0.28
+  limbs.head.rotation.y = idleHeadScan // slow scanning when idle
+  limbs.head.rotation.z = -Math.sin(p) * bodyRoll * 0.4
 }

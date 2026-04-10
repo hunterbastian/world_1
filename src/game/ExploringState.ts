@@ -7,11 +7,10 @@ export class ExploringState implements GameState {
 
   private compass = { t: 0, angle: 0, has: false }
   private rest = { active: false, hold: 0, t: 0 }
-  private spawnIntro = { t: 0, active: true }
+  private walkerActivation = { hold: 0, nearWalkerIdx: -1 }
+  private devFly = false
 
-  enter(_ctx: GameContext) {
-    this.spawnIntro = { t: 0, active: true }
-  }
+  enter(_ctx: GameContext) {}
 
   exit(_ctx: GameContext) {
     this.rest = { active: false, hold: 0, t: 0 }
@@ -19,16 +18,33 @@ export class ExploringState implements GameState {
 
   update(ctx: GameContext, dt: number, input: InputState) {
     const { player, cameraRig, poi, hud, journal, worldMap, walkers, camera } = ctx
-    const windDir = ctx.wind.dirXZ
 
-    cameraRig.addOrbitDelta(input.mouseDeltaX, input.mouseDeltaY)
-    player.setWind(windDir)
-
-    if (!this.rest.active) {
-      player.update(dt, input, cameraRig.getYaw())
+    // Dev fly toggle
+    if (input.devFlyToggle) {
+      this.devFly = !this.devFly
+      console.info(`[dev] fly mode: ${this.devFly ? 'ON' : 'OFF'}`)
     }
 
-    this.updateSpawnIntro(dt, cameraRig)
+    // FP camera: mouse → camera yaw/pitch
+    cameraRig.addOrbitDelta(input.mouseDeltaX, input.mouseDeltaY)
+
+    if (this.devFly) {
+      // Noclip fly mode — WASD + Space/Ctrl for up/down, Shift for fast
+      this.updateDevFly(ctx, dt, input)
+    } else {
+      if (!this.rest.active) {
+        player.update(dt, input, cameraRig.getYaw())
+      }
+
+      // Feed movement state to camera for bob, FOV, roll
+      cameraRig.setMovementState(
+        player.speed,
+        player.sprinting ? 7.0 : 5.5,
+        player.sprinting,
+        player.sliding
+      )
+      cameraRig.setEyeHeight(player.eyeHeight)
+    }
     cameraRig.update(dt, player.position)
 
     if (input.journalToggle) journal.toggle()
@@ -65,23 +81,89 @@ export class ExploringState implements GameState {
       walkers: walkers.walkers.map((w) => ({ position: w.object3d.position })),
     })
 
+    // Walker activation
+    this.updateWalkerActivation(ctx, dt, input)
+
     // Rest mechanic
     this.updateRest(ctx, dt, input)
   }
 
-  private updateSpawnIntro(dt: number, cameraRig: GameContext['cameraRig']) {
-    if (!this.spawnIntro.active) {
-      cameraRig.setDesired(7.5, 2.0)
-      return
+  private updateDevFly(ctx: GameContext, dt: number, input: InputState) {
+    const { player, cameraRig } = ctx
+    const flySpeed = input.sprint ? 80 : 25
+    const yaw = cameraRig.getYaw()
+
+    // Forward/back/strafe in camera direction
+    const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw))
+    const right = new THREE.Vector3(fwd.z, 0, -fwd.x)
+
+    const move = new THREE.Vector3()
+    move.addScaledVector(fwd, input.forward * flySpeed * dt)
+    move.addScaledVector(right, -input.right * flySpeed * dt)
+
+    // Up/down
+    if (input.flyUp) move.y += flySpeed * dt
+    if (input.flyDown) move.y -= flySpeed * dt
+
+    player.position.add(move)
+    player.velocity.set(0, 0, 0)
+
+    // Disable bob in fly mode
+    cameraRig.setMovementState(0, 1, false, false)
+    cameraRig.setEyeHeight(player.standingEyeHeight)
+  }
+
+  private updateWalkerActivation(ctx: GameContext, dt: number, input: InputState) {
+    const { player, walkers, hud } = ctx
+    const activationRange = 8.0
+    const activationTime = 4.0 // seconds to hold E
+
+    // Find nearest inactive walker
+    let nearestIdx = -1
+    let nearestDist = Infinity
+    for (let i = 0; i < walkers.walkers.length; i++) {
+      const w = walkers.walkers[i]
+      if (w.activated) continue
+      const d = w.object3d.position.distanceTo(player.position)
+      if (d < activationRange && d < nearestDist) {
+        nearestDist = d
+        nearestIdx = i
+      }
     }
-    this.spawnIntro.t += dt
-    const dur = 2.6
-    const t = Math.min(1, this.spawnIntro.t / dur)
-    const ease = 1 - Math.pow(1 - t, 3)
-    const dist = THREE.MathUtils.lerp(14.0, 7.5, ease)
-    const height = THREE.MathUtils.lerp(3.6, 2.0, ease)
-    cameraRig.setDesired(dist, height)
-    if (t >= 1) this.spawnIntro.active = false
+
+    if (nearestIdx >= 0) {
+      // Near an inactive walker
+      if (this.walkerActivation.nearWalkerIdx !== nearestIdx) {
+        this.walkerActivation.hold = 0
+        this.walkerActivation.nearWalkerIdx = nearestIdx
+      }
+
+      if (input.interactHeld) {
+        this.walkerActivation.hold = Math.min(1, this.walkerActivation.hold + dt / activationTime)
+      } else {
+        this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 0.8)
+      }
+
+      hud.setActivationRing(this.walkerActivation.hold)
+
+      if (this.walkerActivation.hold >= 1) {
+        // Activate!
+        const walker = walkers.walkers[nearestIdx]
+        walker.activate()
+        this.walkerActivation.hold = 0
+        this.walkerActivation.nearWalkerIdx = -1
+        hud.setActivationRing(null)
+      }
+    } else {
+      // Not near any walker
+      if (this.walkerActivation.hold > 0) {
+        this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 1.2)
+        hud.setActivationRing(this.walkerActivation.hold > 0.01 ? this.walkerActivation.hold : null)
+      } else {
+        hud.setActivationRing(null)
+      }
+      this.walkerActivation.nearWalkerIdx = -1
+    }
   }
 
   private updateRest(ctx: GameContext, dt: number, input: InputState) {

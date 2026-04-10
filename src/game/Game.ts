@@ -225,8 +225,8 @@ export class Game {
     this.scene.add(this.cloudDome.object3d)
 
     this.terrain = new Terrain({
-      size: 700,
-      segments: 224,
+      size: 1500,
+      segments: 350,
       seed: 'world-seed-001',
       seaLevel: -2,
     })
@@ -238,7 +238,7 @@ export class Game {
     this.water = new Water(this.terrain, {
       seed: 'world-seed-001',
       seaLevel: -2,
-      riverCount: 2,
+      riverCount: 4,
     })
     this.water.setQuality(this.qualityTier)
     this.scene.add(this.water.object3d)
@@ -253,7 +253,7 @@ export class Game {
     this.grass = new GrassField({
       terrain: this.terrain,
       seed: 'world-seed-001',
-      count: 32000,
+      count: 55000,
     })
     this.grass.setQuality(this.qualityTier)
     this.scene.add(this.grass.object3d)
@@ -315,6 +315,7 @@ export class Game {
     this.scene.add(this.walkers.object3d)
 
     this.audio = new AudioSystem({ camera: this.camera, terrain: this.terrain, player: this.player })
+    this.audio.registerWalkers(this.walkers.walkers)
     document.addEventListener(
       'pointerlockchange',
       () => {
@@ -326,13 +327,23 @@ export class Game {
     )
 
     this.cameraRig = new CameraRig(this.camera, {
-      distance: 7.5,
-      height: 2.0,
+      fov: 65,
       yaw: 0,
-      pitch: 0.25,
-      terrain: this.terrain,
+      pitch: 0,
     })
     this.player.onStep(({ intensity }) => this.cameraRig.impulseFootstep(intensity))
+    this.player.onLanding(({ intensity }) => this.cameraRig.impulseLanding(intensity))
+
+    // Walker stomps shake the camera when nearby
+    for (const w of this.walkers.walkers) {
+      w.onStomp((e) => {
+        const dist = e.position.distanceTo(this.player.position)
+        if (dist < 50) {
+          const falloff = 1 - dist / 50
+          this.cameraRig.impulseLanding(e.intensity * falloff * 0.5)
+        }
+      })
+    }
   }
 
   private projectToScreenUv(worldPos: THREE.Vector3, camera: THREE.Camera) {

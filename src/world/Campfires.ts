@@ -16,7 +16,7 @@ export class Campfires {
     // Place a few campfires around the world (independent of POIs for now).
     const fires: THREE.Vector3[] = []
     const half = terrain.size * 0.5
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 12; i++) {
       const x = (Math.sin(i * 91.3) * 0.7) * half
       const z = (Math.cos(i * 73.9) * 0.55) * half
       const y = terrain.heightAtXZ(x, z)

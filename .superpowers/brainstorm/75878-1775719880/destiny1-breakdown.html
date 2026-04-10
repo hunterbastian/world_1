@@ -1,0 +1,81 @@
+<h2>Destiny 1 Visual Identity — Full Breakdown</h2>
+<p class="subtitle">Beyond rim lighting, what makes Destiny 1 look like Destiny 1? Select the pillars you want to bring into Mech World.</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="atmosphere" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Atmospheric Perspective</h3>
+      <p>Destiny 1's most recognizable trait. Distant geometry shifts toward a <strong>colored haze</strong> that matches the sky — not uniform fog, but a gradient that's warm near the horizon and cool overhead. The Cosmodrome's blue-grey distance, Venus's golden haze, the Moon's stark black falloff. Each destination had its own atmospheric palette.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        Replaces your current FogVeil screen-space approach with depth-aware, sky-matched atmospheric scattering.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="color-grade" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Filmic Color Grading</h3>
+      <p>Destiny 1 had a specific color science: <strong>desaturated midtones, warm highlights, cool shadows</strong>. Not cel-shaded, not photorealistic — somewhere in between. A subtle S-curve on contrast, slight vignette, and split-toning that made everything feel cinematic. Your ToonRamp is more anime than Destiny — this would replace it with a filmic grade.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        Replaces ToonRampEffect + BiomePaletteEffect with a unified CinematicGradeEffect (lift/gamma/gain, split-tone, vignette).
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="material-pbr" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Stylized PBR Materials</h3>
+      <p>Destiny 1 used physically-based rendering but <strong>pushed it toward painterly</strong>. Metals had exaggerated specular highlights, cloth was soft and diffuse, organic materials had subtle subsurface scatter. The key: materials told you what something was made of at a glance. Your terrain uses vertex colors + noise — this would add material identity.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        Enhance terrain shader with material-aware zones (rock=rough specular, grass=soft diffuse, snow=high scatter). Mech materials get metallic + emissive channels.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="godrays-bloom" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>God Rays + Selective Bloom</h3>
+      <p>Your god rays already exist but Destiny 1's were more <strong>volumetric and directional</strong> — light shafts that occluded behind terrain. Combined with selective bloom on bright surfaces (sun, emissive mech joints, campfire glow), this creates the "epic vista" moment Destiny was famous for.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        Upgrade GodRaysEffect with depth occlusion. Add threshold bloom pass for emissive surfaces. Moderate perf cost.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="sky-upgrade" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>Dramatic Sky & Cloud Upgrade</h3>
+      <p>Destiny 1's skyboxes were <strong>painted works of art</strong> — layered cloud decks with silver linings, dramatic gradients from warm horizon to deep blue zenith, and the Traveler looming overhead. Your CloudDome is procedural noise on a sphere — this would add layered cloud types, silver-lining effect, and richer sky gradients.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        Multi-layer cloud system, sky gradient LUT, cloud silver lining from sun angle. Moderate perf cost.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="ao-shadows" onclick="toggleSelect(this)">
+    <div class="letter">F</div>
+    <div class="content">
+      <h3>SSAO + Contact Shadows</h3>
+      <p>Destiny 1 had strong ambient occlusion — <strong>dark creases, grounded objects, depth in crevices</strong>. Trees meeting terrain, mech feet on ground, rock formations against hillsides. This is what makes a world feel solid instead of objects floating on a surface.</p>
+      <div style="margin-top:8px; padding:10px; border-radius:6px; background:rgba(255,255,255,0.03); font-size:13px; color:#999;">
+        Add N8AO (performant SSAO for Three.js) or custom screen-space AO. Most expensive option — quality-tiered.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px; padding:16px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06);">
+  <p style="margin:0 0 8px; font-size:13px; color:#aaa;"><strong>Already confirmed:</strong></p>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <span style="padding:4px 10px; border-radius:4px; background:rgba(100,200,100,0.12); color:#8c8; font-size:12px;">Rim / Back Lighting</span>
+    <span style="padding:4px 10px; border-radius:4px; background:rgba(100,200,100,0.12); color:#8c8; font-size:12px;">Render Pipeline Overhaul (perf)</span>
+  </div>
+  <p style="margin:8px 0 0; font-size:12px; color:#666;">Select additional pillars above to expand scope. Each one we add increases the spec size but gets us closer to full Destiny 1 feel.</p>
+</div>
