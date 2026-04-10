@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Third-person exploration + mech-piloting game built with Three.js. Explore procedurally generated mountains and grasslands, find abandoned Walker Mechs, activate and pilot them, fight void creatures, level up at camps. Aesthetic: Studio Ghibli × Halo / Destiny — painterly wonder, mythic sci-fi scale, and clean heroic futurism.
+Third-person exploration + mech-piloting game built with Three.js. Explore procedurally generated mountains and grasslands, find abandoned Walker Mechs, activate and pilot them, fight void creatures, level up at camps. **Creative north star:** if **Studio Ghibli**, **Halo**, **Destiny**, **No Man's Sky**, and **The Last Guardian** had a baby — and **you pilot the mech** (the Walker is your Trico-scale companion, but you're in the cockpit).
 
 **Foundational docs:**
 - [game-design-document.md](./game-design-document.md) — what the game is
@@ -40,5 +40,5 @@ Third-person exploration + mech-piloting game built with Three.js. Explore proce
 - Game UI direction: Frutiger Aero–influenced whites and Mirror's Edge–style clean futuristic panels rather than ornate gold or heavy medieval chrome.
 - Walker mechs should not have visible eyes; materials favor aluminum/silver with dark grey accents over military camo.
 - Walker mechs are four-legged with a turret on each design; tier-one (Argos) is placed in grasslands near the player’s first spawn, tier-two (Tyr) near ruins and forest areas.
-- Beyond the Ghibli × Halo/Destiny blend, aims for more Breath of the Wild–style readability and appeal on the player character and overall graphics.
+- Beyond the Ghibli × Halo/Destiny × No Man's Sky × Last Guardian blend (at mech scale), aims for more Breath of the Wild–style readability and appeal on the player character and overall graphics.
 - Uses a Vite-served `viewer.html` model viewer to inspect and iterate on procedural models and animations (knight, Walkers, world assets).

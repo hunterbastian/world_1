@@ -2,9 +2,9 @@
 
 ## Vision
 
-A third-person exploration and mech-piloting game set in a mysterious procedurally generated world of mountains, grasslands, and ancient ruins. The aesthetic blends Studio Ghibli's warmth and nature with **Halo** and **Destiny** — mythic sci-fi scale, painterly light, and the feeling of walking through the remains of something vast and unknowable, without leaning on grimdark fantasy.
+A third-person exploration and mech-piloting game set in a mysterious procedurally generated world of mountains, grasslands, and ancient ruins. **Pitch:** *Studio Ghibli*, **Halo**, **Destiny**, **No Man's Sky**, and **The Last Guardian** in one tone stack — painterly nature, mythic sci-fi ruins, lonely wanderlust across a seeded world, and the **emotional scale of a giant companion** — except **you pilot the Walker**: the quadruped is your mount and presence in the world, not a separate AI partner.
 
-**Reference games:** Halo (scale, mystery, clean heroic sci-fi), Destiny (movement feel, filmic color, exploration fantasy), Breath of the Wild (discovery, open world readability), Skyrim (mountains, wandering).
+**Reference games:** Ghibli (warmth, living landscapes), Halo (clean heroic sci-fi, mystery of the ringworld-scale past), Destiny (movement feel, filmic color, loot-and-wonder loop), No Man's Sky (procedural planet-hike mood, horizon, solitude), The Last Guardian (ruins, scale, bond with something enormous — here, *being* the enormous thing), plus Breath of the Wild (readability, discovery) and Skyrim (mountains, wandering).
 
 ## Core Loop
 
@@ -31,7 +31,7 @@ A third-person exploration and mech-piloting game set in a mysterious procedural
 - **Size:** ~5x human height. Roughly orca-sized.
 - **Lore:** Abandoned by a lost civilization. Why they were left behind is a mystery (lore breadcrumbs in ruins).
 - **Activation:** First Walker is free (press E). Later Walkers require resources (power cells found on the map, parts from enemies).
-- **Piloting:** Player mounts the Walker. Camera pulls back to accommodate the larger model. Movement becomes heavier, wider turning radius.
+- **Piloting:** Player mounts the Walker. Camera pulls back to accommodate the larger model. Movement becomes heavier, wider turning radius. Fantasy reference: *Last Guardian*'s bond-with-a-giant feeling, but **you are the giant machine** — agency stays with the player.
 - **Combat:** Turret mounted on the Walker. Auto-aim assist with automatic lock-on to nearest enemy. Fire with click.
 - **Naming convention:** Greek mythology × Viking names (e.g., Fenrir, Argos, Tyr, Cerberus, Baldr, Typhon).
 - **Tiers (MVP — 2 tiers, 4 planned):**
@@ -84,8 +84,8 @@ A third-person exploration and mech-piloting game set in a mysterious procedural
 
 ## Aesthetic
 
-- Studio Ghibli × Halo / Destiny.
-- Epic and mysterious, but **hopeful and legible** — big skies, strong silhouettes, cinematic grading rather than oppressive gloom.
+- Studio Ghibli × Halo × Destiny × No Man's Sky × The Last Guardian — **you're inside the mech**.
+- Epic and mysterious, but **hopeful and legible** — big skies, strong silhouettes, cinematic grading, lonely horizons (NMS) and crumbling mega-ruins you traverse on foot *and* as the Walker (Last Guardian scale fantasy, inverted).
 - Muted natural colors for the world. Ruins read as **lost high-tech** or Forerunner-scale geometry weathered by time.
 - Walkers have an organic-mechanical look — mossy, rusted, overgrown.
 - Void creatures are dark, inky, alien shapes (cosmic threat, not medieval horror).
@@ -104,7 +104,7 @@ A third-person exploration and mech-piloting game set in a mysterious procedural
 **Environment** (`references/environment/`)
 - Grasslands: Howl's Moving Castle rolling green hills — lush, alive, wildflowers, ponds catching sky reflections. Snow-capped mountains on the horizon. Warm light.
 - Forests: Dense green canopy, overgrown paths, earthy warm tones, dappled light. Totoro-era Ghibli.
-- Mountains/Ruins: **Halo/Destiny** lost-civilization stone and metal — monolithic forms, dramatic atmosphere, fog in the valleys, readable mega-geometry. Contrast Ghibli-soft wilds below with **mythic sci-fi** heights and ruins.
+- Mountains/Ruins: **Halo/Destiny** lost-civilization stone and metal — monolithic forms, dramatic atmosphere, fog in the valleys, readable mega-geometry. **Last Guardian**-style vertical ruin read: broken arches, sun shafts, places meant for something huge to climb. **No Man's Sky**-style sense of landing on a single vast place worth crossing. Contrast Ghibli-soft wilds below with mythic sci-fi heights.
 
 **UI** (`references/ui/`)
 - **Halo/Destiny-style HUD discipline:** minimal prompt at bottom center, vitals and meters tucked in corners, high readability. Futuristic clarity over ornate fantasy chrome.
