@@ -1,9 +1,19 @@
 import * as THREE from 'three'
-import { EffectComposer } from 'postprocessing'
-import { RenderPass } from 'postprocessing'
-import { EffectPass } from 'postprocessing'
-import { Effect } from 'postprocessing'
+import {
+  EffectComposer,
+  RenderPass,
+  EffectPass,
+  Effect,
+  NormalPass,
+  SSAOEffect,
+  BloomEffect,
+  VignetteEffect,
+  ChromaticAberrationEffect,
+  BlendFunction,
+} from 'postprocessing'
 import type { QualityTier } from '../game/PerformanceManager'
+
+/* ── Custom Effects ─────────────────────────────────────────── */
 
 class ToonRampEffect extends Effect {
   constructor() {
@@ -128,17 +138,14 @@ class GodRaysEffect extends Effect {
 
         col += rays * exposure * smoothstep(0.9, 0.0, dist);
 
-        // Sun halo: warm bloom around the sun position
         float haloFalloff = smoothstep(0.45, 0.0, dist);
         float haloBright = haloFalloff * haloFalloff;
         vec3 haloColor = vec3(1.0, 0.92, 0.78);
         col += haloColor * haloBright * uIntensity * 0.35;
 
-        // Secondary soft glow (wider, subtler)
         float outerGlow = smoothstep(0.7, 0.0, dist) * 0.12 * uIntensity;
         col += vec3(0.95, 0.88, 0.75) * outerGlow;
 
-        // Distance haze: thicker toward horizon, warm tint
         float horizonBand = smoothstep(0.35, 0.55, uv.y) * (1.0 - smoothstep(0.55, 0.62, uv.y));
         float haze = horizonBand * 0.08 * uIntensity;
         col += vec3(0.85, 0.82, 0.78) * haze;
@@ -167,16 +174,16 @@ class GodRaysEffect extends Effect {
   }
 }
 
-class FogVeilEffect extends Effect {
+class HeightFogEffect extends Effect {
   constructor() {
-    super('FogVeilEffect', /* glsl */ `
+    super('HeightFogEffect', /* glsl */ `
       uniform sampler2D tBiome;
-      uniform sampler2D tDepth;
       uniform float uTime;
       uniform float uStrength;
       uniform float uDetail;
       uniform float uCamHeight;
       uniform float uSeaLevel;
+      uniform vec2  uSunScreenUv;
 
       float hash(vec2 p) {
         p = fract(p * vec2(123.34, 345.45));
@@ -207,38 +214,41 @@ class FogVeilEffect extends Effect {
       void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
         vec3 col = inputColor.rgb;
 
-        // Height-based fog: thicker in valleys (low screen Y), thinner at peaks
+        // Height-based: thicker in valleys, thinner at peaks
         float horizon = smoothstep(0.10, 0.50, uv.y) * (1.0 - smoothstep(0.78, 0.98, uv.y));
-
-        // Valley pooling: fog concentrates in the lower third of the screen
         float valleyPool = smoothstep(0.50, 0.20, uv.y) * 0.6;
         float heightMask = horizon + valleyPool;
 
+        // Exponential altitude decay — fog density drops as camera climbs
+        float altFade = exp(-max(0.0, uCamHeight - 8.0) * 0.04);
+
         // Animated drift
-        vec2 drift = vec2(uTime * 0.008, -uTime * 0.005);
+        vec2 drift  = vec2(uTime * 0.008, -uTime * 0.005);
         vec2 drift2 = vec2(-uTime * 0.006, uTime * 0.004);
 
-        // Layered noise for wispy volume
         float n1 = fbmFog(uv * 5.0 + drift);
         float n2 = fbmFog(uv * 10.0 + drift2);
         float n3 = noise(uv * 20.0 + drift * 2.5) * uDetail;
         float fogShape = n1 * 0.55 + n2 * 0.30 + n3 * 0.15;
 
-        // Biome influence: forests get thicker low fog
+        // Biome influence
         float biome = texture2D(tBiome, uv).r * 255.0;
         float forestBoost = (biome > 0.5 && biome < 1.5) ? 1.0 : 0.0;
         float mountainClear = (biome > 1.5) ? 0.6 : 1.0;
 
-        // Camera height influence: fog thins when camera is high up (mountain vistas)
-        float camFade = smoothstep(40.0, 15.0, uCamHeight);
-
         float fogAmt = uStrength * heightMask * (0.25 + 0.15 * fogShape);
-        fogAmt *= (1.0 + 0.2 * forestBoost) * mountainClear * camFade;
+        fogAmt *= (1.0 + 0.2 * forestBoost) * mountainClear * altFade;
         fogAmt = clamp(fogAmt, 0.0, 0.30);
 
-        vec3 fogValley = vec3(0.58, 0.65, 0.80);
+        // Base fog color
+        vec3 fogValley  = vec3(0.58, 0.65, 0.80);
         vec3 fogHorizon = vec3(0.82, 0.78, 0.72);
         vec3 fogCol = mix(fogValley, fogHorizon, smoothstep(0.25, 0.55, uv.y));
+
+        // Sun scattering through height fog — warm glow near sun
+        float sunProx = 1.0 - smoothstep(0.0, 0.55, distance(uv, uSunScreenUv));
+        vec3 scatterCol = vec3(1.0, 0.92, 0.72);
+        fogCol = mix(fogCol, scatterCol, sunProx * sunProx * 0.35);
 
         col = mix(col, fogCol, fogAmt);
         outputColor = vec4(col, 1.0);
@@ -246,12 +256,12 @@ class FogVeilEffect extends Effect {
     `, {
       uniforms: new Map<string, THREE.Uniform>([
         ['tBiome', new THREE.Uniform(null)],
-        ['tDepth', new THREE.Uniform(null)],
         ['uTime', new THREE.Uniform(0)],
         ['uStrength', new THREE.Uniform(0.08)],
         ['uDetail', new THREE.Uniform(1.0)],
         ['uCamHeight', new THREE.Uniform(10)],
         ['uSeaLevel', new THREE.Uniform(-2)],
+        ['uSunScreenUv', new THREE.Uniform(new THREE.Vector2(0.5, 0.8))],
       ]),
     })
   }
@@ -275,47 +285,127 @@ class FogVeilEffect extends Effect {
   setCamHeight(h: number) {
     ;(this.uniforms.get('uCamHeight') as THREE.Uniform).value = h
   }
+
+  setSunScreenUv(uv: THREE.Vector2) {
+    ;(this.uniforms.get('uSunScreenUv') as THREE.Uniform).value.copy(uv)
+  }
 }
+
+/* ── PostFX Pipeline ────────────────────────────────────────── */
 
 export class PostFX {
   public readonly composer: EffectComposer
 
   private readonly biomeTarget: THREE.WebGLRenderTarget
   private readonly biomeOverrideMaterial: THREE.MeshBasicMaterial
+
+  // Custom effects
   private readonly toonRamp: ToonRampEffect
   private readonly biomeEffect: BiomePaletteEffect
-  private readonly fogVeil: FogVeilEffect
+  private readonly heightFog: HeightFogEffect
   private readonly grainEffect: FilmGrainEffect
   private readonly godRays: GodRaysEffect
+
+  // Library effects
+  private readonly normalPass: NormalPass
+  private readonly ssao: SSAOEffect
+  private readonly bloom: BloomEffect
+  private readonly vignette: VignetteEffect
+  private readonly chromatic: ChromaticAberrationEffect
+  private readonly ssaoPass: EffectPass
 
   private time = 0
   private quality: QualityTier = 'high'
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
     this.composer = new EffectComposer(renderer)
+
+    // ── Pass 1: Scene render ──
     this.composer.addPass(new RenderPass(scene, camera))
 
-    // Biome ID pass render target (R8-like via RGBA, but we only use .r)
+    // Biome ID render target (rendered manually before composer)
     this.biomeTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
       depthBuffer: true,
     })
     this.biomeTarget.texture.name = 'BiomeIdTarget'
     this.biomeOverrideMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 })
 
+    // ── Pass 2: Normal pass for SSAO ──
+    this.normalPass = new NormalPass(scene, camera)
+    this.composer.addPass(this.normalPass)
+
+    // ── Pass 3: SSAO (HBAO-like ambient occlusion) ──
+    this.ssao = new SSAOEffect(camera, this.normalPass.texture, {
+      blendFunction: BlendFunction.MULTIPLY,
+      samples: 9,
+      rings: 7,
+      worldDistanceThreshold: 20,
+      worldDistanceFalloff: 5,
+      worldProximityThreshold: 0.4,
+      worldProximityFalloff: 0.15,
+      luminanceInfluence: 0.6,
+      radius: 0.1,
+      intensity: 1.5,
+      bias: 0.025,
+      fade: 0.02,
+      resolutionScale: 0.5,
+    })
+    this.ssaoPass = new EffectPass(camera as THREE.Camera, this.ssao)
+    this.composer.addPass(this.ssaoPass)
+
+    // ── Pass 4: Color processing + atmosphere ──
     this.toonRamp = new ToonRampEffect()
     this.biomeEffect = new BiomePaletteEffect()
     this.biomeEffect.setBiomeTexture(this.biomeTarget.texture)
-
     this.godRays = new GodRaysEffect()
-    this.fogVeil = new FogVeilEffect()
-    this.fogVeil.setBiomeTexture(this.biomeTarget.texture)
+
+    this.heightFog = new HeightFogEffect()
+    this.heightFog.setBiomeTexture(this.biomeTarget.texture)
+
+    this.bloom = new BloomEffect({
+      blendFunction: BlendFunction.SCREEN,
+      luminanceThreshold: 0.82,
+      luminanceSmoothing: 0.08,
+      mipmapBlur: true,
+      intensity: 0.5,
+      radius: 0.75,
+      levels: 6,
+    })
+
+    this.composer.addPass(
+      new EffectPass(camera as THREE.Camera,
+        this.toonRamp, this.biomeEffect, this.godRays, this.heightFog, this.bloom,
+      ),
+    )
+
+    // ── Pass 5: Final polish ──
+    this.chromatic = new ChromaticAberrationEffect({
+      offset: new THREE.Vector2(0.0006, 0.0003),
+      radialModulation: true,
+      modulationOffset: 0.2,
+    })
+    this.vignette = new VignetteEffect({
+      offset: 0.35,
+      darkness: 0.4,
+    })
     this.grainEffect = new FilmGrainEffect()
 
-    this.composer.addPass(new EffectPass(camera, this.toonRamp, this.biomeEffect, this.godRays, this.fogVeil, this.grainEffect))
+    this.composer.addPass(
+      new EffectPass(camera as THREE.Camera,
+        this.chromatic, this.vignette, this.grainEffect,
+      ),
+    )
   }
 
   setQuality(tier: QualityTier) {
     this.quality = tier
+
+    // SSAO — disable entirely on low, half-res on medium
+    this.ssaoPass.enabled = tier !== 'low'
+    this.normalPass.enabled = tier !== 'low'
+
+    // Bloom intensity
+    this.bloom.intensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.35 : 0.5
   }
 
   resize(w: number, h: number) {
@@ -328,35 +418,41 @@ export class PostFX {
     this.grainEffect.setTime(this.time)
 
     const k = 1 - Math.exp(-dt * 2.2)
+
+    // God ray quality
     const targetSamples = this.quality === 'high' ? 20 : this.quality === 'medium' ? 14 : 10
     const curSamples = (this.godRays.uniforms.get('uSamples') as THREE.Uniform).value as number
     this.godRays.setSamples(THREE.MathUtils.lerp(curSamples, targetSamples, k))
 
+    // Height fog quality
     const targetFogDetail = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.7 : 0.45
-    const curFogDetail = (this.fogVeil.uniforms.get('uDetail') as THREE.Uniform).value as number
-    this.fogVeil.setDetail(THREE.MathUtils.lerp(curFogDetail, targetFogDetail, k))
+    const curFogDetail = (this.heightFog.uniforms.get('uDetail') as THREE.Uniform).value as number
+    this.heightFog.setDetail(THREE.MathUtils.lerp(curFogDetail, targetFogDetail, k))
 
+    // Grain amount
     const targetGrain = this.quality === 'high' ? 0.012 : this.quality === 'medium' ? 0.010 : 0.008
     const curGrain = (this.grainEffect.uniforms.get('uAmount') as THREE.Uniform).value as number
     this.grainEffect.setAmount(THREE.MathUtils.lerp(curGrain, targetGrain, k))
 
+    // God rays
     this.godRays.setSunUv(sunUv)
     const godMul = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.85 : 0.7
     this.godRays.setIntensity(godRayIntensity * godMul)
-    this.fogVeil.setTime(this.time)
+
+    // Height fog
+    this.heightFog.setTime(this.time)
     const fogMul = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.9 : 0.78
-    this.fogVeil.setStrength(fogStrength * fogMul)
-    this.fogVeil.setCamHeight(camHeight)
+    this.heightFog.setStrength(fogStrength * fogMul)
+    this.heightFog.setCamHeight(camHeight)
+    this.heightFog.setSunScreenUv(sunUv)
   }
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
-    // Render biome ID to target using per-mesh userData.biomeIndex encoded in red channel.
+    // Render biome ID to target using per-mesh userData.biomeIndex
     const prevRT = renderer.getRenderTarget()
     const prevOverride = scene.overrideMaterial
 
-    // Override material is set per mesh in onBeforeRender hook for ID encoding
     scene.overrideMaterial = this.biomeOverrideMaterial
-
     renderer.setRenderTarget(this.biomeTarget)
     renderer.clear()
     renderer.render(scene, camera)
@@ -367,7 +463,6 @@ export class PostFX {
     this.composer.render()
   }
 
-  // Helper: attach to meshes you want biome-graded.
   static tagBiome(mesh: THREE.Object3D, biomeIndex: number) {
     mesh.traverse((o) => {
       const m = o as THREE.Mesh
@@ -381,4 +476,3 @@ export class PostFX {
     })
   }
 }
-

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Transform Mech World's rendering from anime-toon to Destiny 1-inspired filmic visuals while maintaining 60fps on wide vistas at 1500x1500 world scale.
+**Goal:** Transform Glasswake's rendering from anime-toon to Destiny 1-inspired filmic visuals while maintaining 60fps on wide vistas at 1500x1500 world scale.
 
 **Architecture:** Performance pipeline restructure (terrain chunking, spatial grid vegetation/grass, frustum culling) creates GPU headroom, then Destiny-style shaders (rim lighting, atmospheric haze, cinematic grading, SSAO, DOF, chromatic aberration) replace the current toon pipeline. A normals pre-pass feeds SSAO; all other depth consumers reuse the existing EffectComposer depth buffer.
 

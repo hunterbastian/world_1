@@ -1,4 +1,4 @@
-# Mech World — Tech Stack
+# Glasswake — Tech Stack
 
 ## Runtime
 

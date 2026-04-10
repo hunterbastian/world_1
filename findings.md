@@ -1,4 +1,4 @@
-# Mech World — Findings
+# Glasswake — Findings
 
 ## Architecture
 - All world systems read `terrain.size` dynamically — no hardcoded 700 values outside Game.ts

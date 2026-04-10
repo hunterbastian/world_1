@@ -1,4 +1,4 @@
-# Mech World — MVP Implementation Plan
+# Glasswake — MVP Implementation Plan
 
 Goal: Player can spawn, explore on foot, find an abandoned Walker Mech, activate it, pilot it, fight basic enemies, and level up at a camp. ESC menu with character/mech overview and quit/restart.
 

@@ -1,4 +1,4 @@
-# Mech World — Game Design Document
+# Glasswake — Game Design Document
 
 ## Vision
 

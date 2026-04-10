@@ -27,7 +27,20 @@ export class SkySystem {
 
     this.sunLight = new THREE.DirectionalLight(0xffffff, 1.15)
     this.sunLight.position.set(100, 200, 50)
+
+    this.sunLight.castShadow = true
+    this.sunLight.shadow.mapSize.set(2048, 2048)
+    this.sunLight.shadow.camera.near = 1
+    this.sunLight.shadow.camera.far = 400
+    this.sunLight.shadow.camera.left = -80
+    this.sunLight.shadow.camera.right = 80
+    this.sunLight.shadow.camera.top = 80
+    this.sunLight.shadow.camera.bottom = -80
+    this.sunLight.shadow.bias = -0.0004
+    this.sunLight.shadow.normalBias = 0.02
+
     this.scene.add(this.sunLight)
+    this.scene.add(this.sunLight.target)
 
     this.fog = new THREE.FogExp2(0xb8d0e0, 0.00014)
     this.scene.fog = this.fog
@@ -77,6 +90,14 @@ export class SkySystem {
 
     // Keep base fog lighter to preserve biome color; valley fog veil handles extra depth.
     this.fog.density = THREE.MathUtils.lerp(0.00028, 0.00008, dayAmt)
+  }
+
+  /** Move the shadow frustum to centre on the given world position. */
+  updateShadowFocus(target: THREE.Vector3) {
+    const offset = this.sunDirection.clone().multiplyScalar(160)
+    this.sunLight.position.copy(target).add(offset)
+    this.sunLight.target.position.copy(target)
+    this.sunLight.target.updateMatrixWorld()
   }
 
   private computeSunDir(t: number) {

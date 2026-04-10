@@ -1,4 +1,4 @@
-# Mech World — Task Plan
+# Glasswake — Task Plan
 
 ## Current Phase: World Scale-Up (1500x1500)
 

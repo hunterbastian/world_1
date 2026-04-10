@@ -82,6 +82,9 @@ export class Game {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1.18
 
+    this.renderer.shadowMap.enabled = true
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(0x0b0f16)
 
@@ -157,10 +160,18 @@ export class Game {
 
     // Environment (always updates regardless of state/pause)
     this.sky.update(dt, this.renderer)
+    this.sky.updateShadowFocus(this.player.position)
     this.rim.sunDir.copy(this.sky.sunDirection)
     this.rim.intensity = THREE.MathUtils.clamp(0.15 + this.sky.duskAmount * 0.55, 0, 0.8)
     this.cloudDome.update(dt, this.sky)
     this.wind.update(dt)
+
+    // Periodically refresh IBL to track day/night shifts
+    this.iblTimer += dt
+    if (this.iblTimer > 30) {
+      this.iblTimer = 0
+      this.buildIBL()
+    }
 
     const input = this.input.consume()
 
@@ -189,7 +200,9 @@ export class Game {
     }
 
     // Post-processing (always renders)
-    const sunUv = this.projectToScreenUv(this.sky.sunLight.position, this.camera)
+    // Use the sky-far sun position for god rays / fog, not the shadow-following light
+    const skySunPos = this.sky.sunDirection.clone().multiplyScalar(400)
+    const sunUv = this.projectToScreenUv(skySunPos, this.camera)
     const godAmt = THREE.MathUtils.clamp(this.sky.duskAmount * 0.9 + (1 - this.sky.dayAmount) * 0.15, 0, 0.85)
     const fogAmt = THREE.MathUtils.clamp(0.06 + (1 - this.sky.dayAmount) * 0.14 + this.sky.duskAmount * 0.04, 0, 0.28)
     this.postfx.update(dt, sunUv, godAmt * 0.55, fogAmt, this.camera.position.y)
@@ -230,9 +243,15 @@ export class Game {
       seed: 'world-seed-001',
       seaLevel: -2,
     })
+    this.terrain.object3d.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) o.receiveShadow = true
+    })
     this.scene.add(this.terrain.object3d)
 
     this.landmarks = new Landmarks(this.terrain)
+    this.landmarks.object3d.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true }
+    })
     this.scene.add(this.landmarks.object3d)
 
     this.water = new Water(this.terrain, {
@@ -304,6 +323,9 @@ export class Game {
       terrain: this.terrain,
       start: spawn.clone(),
     })
+    this.player.object3d.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true }
+    })
     this.scene.add(this.player.object3d)
 
     this.walkers = new WalkerMechs({
@@ -311,6 +333,9 @@ export class Game {
       seed: 'world-seed-001',
       playerSpawn: spawn,
       pois: this.poi.pois,
+    })
+    this.walkers.object3d.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) { o.castShadow = true; o.receiveShadow = true }
     })
     this.scene.add(this.walkers.object3d)
 
@@ -344,6 +369,18 @@ export class Game {
         }
       })
     }
+
+    // IBL — capture the sky as a PMREM environment map for PBR materials
+    this.buildIBL()
+  }
+
+  private iblTimer = 0
+
+  private buildIBL() {
+    const pmrem = new THREE.PMREMGenerator(this.renderer)
+    const envRT = pmrem.fromScene(this.scene, 0.04, 0.1, 2000)
+    this.scene.environment = envRT.texture
+    pmrem.dispose()
   }
 
   private projectToScreenUv(worldPos: THREE.Vector3, camera: THREE.Camera) {
