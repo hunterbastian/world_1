@@ -146,6 +146,10 @@ export class WalkerMech {
 
   // Activation state
   public activated = false
+  /** True while player is piloting this mech (locomotion + walk animation). */
+  public mounted = false
+  private pilotDriveSpeed = 0
+  private walkAnimPhase = 0
   private readonly activationListeners = new Set<(mech: WalkerMech) => void>()
 
   onActivation(cb: (mech: WalkerMech) => void) {
@@ -157,6 +161,17 @@ export class WalkerMech {
     if (this.activated) return
     this.activated = true
     for (const cb of this.activationListeners) cb(this)
+  }
+
+  /** Called each frame while mounted; drives `animateWalker` speed. */
+  setPilotMotion(speed: number) {
+    this.pilotDriveSpeed = speed
+  }
+
+  /** World Y for chase camera look-at (hull height). */
+  pilotCameraAnchorY(): number {
+    const d = tierDims(this.tier)
+    return this.object3d.position.y + d.hipY * this.object3d.scale.x * 0.88
   }
 
   onStomp(cb: (e: WalkerStompEvent) => void) {
@@ -586,6 +601,14 @@ export class WalkerMech {
   }
 
   update(dt: number) {
+    if (this.mounted) {
+      animateWalker(this.limbs, dt, this.pilotDriveSpeed, this.walkAnimPhase)
+      this.walkAnimPhase = (this.walkAnimPhase + dt * (0.28 + this.pilotDriveSpeed * 0.4)) % 1
+      return
+    }
+
+    animateWalker(this.limbs, dt, 0, 0)
+
     // Even dormant walkers have idle animation stomp detection
     // The idle bob creates subtle ground contact events
     this.stompPhase += dt * 0.45 // matches idle breathing frequency

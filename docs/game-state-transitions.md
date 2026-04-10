@@ -2,8 +2,8 @@
 
 ## Current behavior
 
-- **`Game.ts`** registers only **`ExploringState`**. Pause is handled by a `paused` flag: gameplay `update` is skipped, but there is no `MenuState` class.
-- **`GameStateId`** includes `'piloting'` and `'menu'`; **`PilotingState`** is not implemented yet.
+- **`Game.ts`** registers **`ExploringState`** and **`PilotingState`**. Pause is still a `paused` flag + `PauseMenu` (no `MenuState` class).
+- **`mountWalker` / `dismountWalker`** on `GameContext` switch between exploring and piloting.
 
 ## Target transitions
 

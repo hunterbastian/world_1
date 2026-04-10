@@ -118,12 +118,12 @@ export class ExploringState implements GameState {
     const activationRange = 8.0
     const activationTime = 4.0 // seconds to hold E
 
-    // Find nearest inactive walker
+    // Nearest walker: dormant (activate+mount) or activated but dismounted (remount)
     let nearestIdx = -1
     let nearestDist = Infinity
     for (let i = 0; i < walkers.walkers.length; i++) {
       const w = walkers.walkers[i]
-      if (w.activated) continue
+      if (w.mounted) continue
       const d = w.object3d.position.distanceTo(player.position)
       if (d < activationRange && d < nearestDist) {
         nearestDist = d
@@ -132,14 +132,16 @@ export class ExploringState implements GameState {
     }
 
     if (nearestIdx >= 0) {
-      // Near an inactive walker
+      const walker = walkers.walkers[nearestIdx]
+      const holdTime = walker.activated ? Math.min(activationTime, 1.2) : activationTime
+
       if (this.walkerActivation.nearWalkerIdx !== nearestIdx) {
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = nearestIdx
       }
 
       if (input.interactHeld) {
-        this.walkerActivation.hold = Math.min(1, this.walkerActivation.hold + dt / activationTime)
+        this.walkerActivation.hold = Math.min(1, this.walkerActivation.hold + dt / holdTime)
       } else {
         this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 0.8)
       }
@@ -147,12 +149,11 @@ export class ExploringState implements GameState {
       hud.setActivationRing(this.walkerActivation.hold)
 
       if (this.walkerActivation.hold >= 1) {
-        // Activate!
-        const walker = walkers.walkers[nearestIdx]
-        walker.activate()
+        if (!walker.activated) walker.activate()
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = -1
         hud.setActivationRing(null)
+        ctx.mountWalker(walker)
       }
     } else {
       // Not near any walker

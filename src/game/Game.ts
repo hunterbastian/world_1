@@ -24,6 +24,8 @@ import { GrassField } from '../world/GrassField'
 import { PauseMenu } from '../ui/PauseMenu'
 import type { GameState, GameStateId, GameContext } from './GameState'
 import { ExploringState } from './ExploringState'
+import { PilotingState } from './PilotingState'
+import type { WalkerMech } from '../world/WalkerMech'
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
@@ -69,6 +71,7 @@ export class Game {
   private readonly states: Map<GameStateId, GameState> = new Map()
   private activeState!: GameState
   private ctx!: GameContext
+  private mountedWalker: WalkerMech | null = null
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -110,9 +113,13 @@ export class Game {
       hud: this.hud,
       worldMap: this.worldMap,
       requestStateChange: (id) => this.changeState(id),
+      mountWalker: (w) => this.mountWalker(w),
+      getMountedWalker: () => this.mountedWalker,
+      dismountWalker: () => this.dismountWalker(),
     }
 
     this.states.set('exploring', new ExploringState())
+    this.states.set('piloting', new PilotingState())
     this.activeState = this.states.get('exploring')!
     this.activeState.enter(this.ctx)
 
@@ -141,6 +148,35 @@ export class Game {
     this.activeState.exit(this.ctx)
     this.activeState = next
     this.activeState.enter(this.ctx)
+  }
+
+  private mountWalker(walker: WalkerMech) {
+    this.mountedWalker = walker
+    walker.mounted = true
+    walker.setPilotMotion(0)
+    this.player.velocity.set(0, 0, 0)
+    this.changeState('piloting')
+  }
+
+  private dismountWalker() {
+    const w = this.mountedWalker
+    if (!w) return
+    w.mounted = false
+    w.setPilotMotion(0)
+    this.mountedWalker = null
+
+    const yRot = w.object3d.rotation.y
+    const right = new THREE.Vector3(Math.cos(yRot), 0, -Math.sin(yRot))
+    const side = 7
+    this.player.position.copy(w.object3d.position).addScaledVector(right, side)
+    this.player.position.y = this.terrain.heightAtXZ(this.player.position.x, this.player.position.z) + 0.02
+    this.player.object3d.position.copy(this.player.position)
+    this.player.velocity.set(0, 0, 0)
+
+    this.cameraRig.setYaw(yRot + Math.PI * 0.15)
+    this.cameraRig.setPitch(0)
+
+    this.changeState('exploring')
   }
 
   private tick = () => {

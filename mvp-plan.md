@@ -50,7 +50,7 @@ Each step should be tested manually before moving to the next. New chat for each
 
 ## Step 5 — Walker activation + mounting
 
-**Repo status:** Partial — hold E activates (ring HUD); **no mount, no `PilotingState`, no dismount.**
+**Repo status:** **Done (no turret)** — `PilotingState`, third-person chase `CameraRig`, hold E dismount; remount supported. Heavier turn + inertia tuned in `PilotingState`; no separate player mesh on Walker.
 
 **What:** Add interaction system. Walk up to a dormant Walker, HUD shows "Press E to Activate". First Walker activates for free. Player mounts the Walker: swap player model for mounted-on-Walker state, camera pulls back to accommodate larger model, movement becomes heavier (wider turn radius, higher speed, more inertia).
 

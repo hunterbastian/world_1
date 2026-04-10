@@ -12,11 +12,23 @@ export type CameraRigParams = {
  * Pitch is camera-only. Bob, landing dip, FOV shifts, and slide roll
  * are layered on top for movement feel.
  */
+export type CameraRigMode = 'firstPerson' | 'thirdPersonChase'
+
 export class CameraRig {
   private readonly camera: THREE.PerspectiveCamera
 
   private yaw: number
   private pitch: number
+
+  private mode: CameraRigMode = 'firstPerson'
+  private readonly tpOffset = new THREE.Vector3()
+  private readonly tpLook = new THREE.Vector3()
+  /** Eye / hull anchor above ground position for chase target */
+  private tpAnchorY = 5
+  private tpDistance = 14
+  private tpHeight = 4.5
+  private tpLookLift = 2.2
+  private tpFov = 58
 
   // Eye height (springs toward target)
   private eyeHeightTarget = 1.65
@@ -59,12 +71,52 @@ export class CameraRig {
     return this.yaw
   }
 
+  setYaw(rad: number) {
+    this.yaw = rad
+  }
+
+  setPitch(rad: number) {
+    this.pitch = rad
+  }
+
+  getPitch() {
+    return this.pitch
+  }
+
+  getMode() {
+    return this.mode
+  }
+
+  /** First-person: camera at eye, mouse look, bob/FOV. */
+  setFirstPerson() {
+    this.mode = 'firstPerson'
+    this.fovTarget = this.fovBase
+    this.rollTarget = 0
+  }
+
+  /**
+   * Third-person chase: camera orbits with mouse, sits behind and above `targetPos`.
+   * `anchorY` is meters above ground for the look-at point (Walker hull height).
+   */
+  setThirdPersonChase(opts?: { distance?: number; height?: number; anchorY?: number; lookLift?: number; fov?: number }) {
+    this.mode = 'thirdPersonChase'
+    if (opts?.distance != null) this.tpDistance = opts.distance
+    if (opts?.height != null) this.tpHeight = opts.height
+    if (opts?.anchorY != null) this.tpAnchorY = opts.anchorY
+    if (opts?.lookLift != null) this.tpLookLift = opts.lookLift
+    if (opts?.fov != null) this.tpFov = opts.fov
+    this.fovTarget = this.tpFov
+    this.rollTarget = 0
+    this.bobIntensity = 0
+  }
+
   addOrbitDelta(dx: number, dy: number) {
     const sens = 0.0022
     this.yaw -= dx * sens
     this.pitch -= dy * sens
-    // Full vertical range: see feet to sky
-    this.pitch = THREE.MathUtils.clamp(this.pitch, -1.4, 1.4)
+    const pitchMax = this.mode === 'thirdPersonChase' ? 0.55 : 1.4
+    const pitchMin = this.mode === 'thirdPersonChase' ? -0.35 : -1.4
+    this.pitch = THREE.MathUtils.clamp(this.pitch, pitchMin, pitchMax)
   }
 
   /** Called each frame with player movement info. */
@@ -107,6 +159,11 @@ export class CameraRig {
 
   update(dt: number, playerPos: THREE.Vector3) {
     this.time += dt
+
+    if (this.mode === 'thirdPersonChase') {
+      this.updateThirdPersonChase(dt, playerPos)
+      return
+    }
 
     // --- Eye height spring (critically damped) ---
     const heightOmega = 10
@@ -176,5 +233,34 @@ export class CameraRig {
     if (Math.abs(this.rollCurrent) > 0.001) {
       this.camera.rotateZ(this.rollCurrent)
     }
+  }
+
+  private updateThirdPersonChase(dt: number, targetPos: THREE.Vector3) {
+    this.fovCurrent += (this.fovTarget - this.fovCurrent) * (1 - Math.exp(-4 * dt))
+    if (Math.abs(this.fovCurrent - this.camera.fov) > 0.05) {
+      this.camera.fov = this.fovCurrent
+      this.camera.updateProjectionMatrix()
+    }
+
+    const anchorY = targetPos.y + this.tpAnchorY
+    const flatBackX = -Math.sin(this.yaw)
+    const flatBackZ = -Math.cos(this.yaw)
+    const cosP = Math.cos(this.pitch)
+    const sinP = Math.sin(this.pitch)
+    const backDist = this.tpDistance * cosP
+    const lift = this.tpHeight + this.tpDistance * sinP
+
+    this.tpOffset.set(
+      targetPos.x + flatBackX * backDist,
+      anchorY + lift,
+      targetPos.z + flatBackZ * backDist
+    )
+
+    this.tpLook.set(targetPos.x, anchorY + this.tpLookLift, targetPos.z)
+
+    this.camera.position.copy(this.tpOffset)
+    this.camera.up.set(0, 1, 0)
+    this.camera.lookAt(this.tpLook)
+    this.camera.rotation.z = 0
   }
 }

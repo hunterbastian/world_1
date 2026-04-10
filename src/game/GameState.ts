@@ -7,6 +7,7 @@ import type { SkySystem } from '../world/SkySystem'
 import type { WindSystem } from '../world/WindSystem'
 import type { PointsOfInterest } from '../world/PointsOfInterest'
 import type { WalkerMechs } from '../world/WalkerMechs'
+import type { WalkerMech } from '../world/WalkerMech'
 import type { JournalUI } from '../ui/Journal'
 import type { HUD } from '../ui/HUD'
 import type { WorldMap } from '../ui/WorldMap'
@@ -28,6 +29,12 @@ export interface GameContext {
   hud: HUD
   worldMap: WorldMap
   requestStateChange: (id: GameStateId) => void
+  /** Board an activated Walker and switch to piloting. */
+  mountWalker: (walker: WalkerMech) => void
+  /** Active Walker while piloting; null on foot. */
+  getMountedWalker: () => WalkerMech | null
+  /** Leave Walker at current spot and return to exploring. */
+  dismountWalker: () => void
 }
 
 export interface GameState {

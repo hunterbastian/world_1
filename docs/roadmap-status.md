@@ -8,8 +8,8 @@ Snapshot of how far the repo matches [mvp-plan.md](../mvp-plan.md). Re-check aft
 | On-foot exploration + camera | **Done** | First-person; Destiny-tuned movement; no visible body on `Player` | `Player.ts`, `CameraRig.ts`, `ExploringState.ts` |
 | Game state machine | **Partial** | `GameState` / `GameContext` exist; only `ExploringState` registered. `piloting` / `menu` IDs unused for transitions | `Game.ts`, `GameState.ts`, `ExploringState.ts` |
 | Walker models + world placement | **Done** | `WalkerMechs` places Scouts + Assaults; procedural `WalkerMech` | `WalkerMechs.ts`, `WalkerMech.ts` |
-| Walker activation | **Partial** | Hold E near dormant Walker fills HUD ring; `walker.activate()` runs. No mount, no `PilotingState`, no resource gate for Assault | `ExploringState.ts`, `WalkerMech.ts` |
-| Piloting + turret | **Not started** | — | MVP Steps 5–6 |
+| Walker activation | **Done** | Hold E activates; **mount** switches to `PilotingState`. Remount activated Walkers with shorter hold. No resource gate for Assault yet | `ExploringState.ts`, `WalkerMech.ts`, `Game.ts` |
+| Piloting + turret | **Partial** | Chase camera + WASD Walker move + dismount; **no turret** yet | `PilotingState.ts`, `CameraRig.ts`, MVP Step 6 |
 | Enemies + XP progression | **Not started** | HUD has HP/STA/XP bars; `setXP(0)` only; no kills or leveling | `HUD.ts`, `Game.ts` |
 | Health + damage | **Not started** | HP bar static at full | MVP Step 9 |
 | Pause / ESC menu | **Partial** | ESC toggles overlay; Resume/Quit; placeholder stats UI. No `MenuState`; no Restart | `Game.ts`, `PauseMenu.ts` |

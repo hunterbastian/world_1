@@ -21,11 +21,11 @@ Aligned with **MVP Steps 1–4** and playtest follow-up from Step 12 polish.
 
 ### Phase 2 — Walker mechs: piloting loop (MVP Steps 3–6)
 
-Primary files: `PilotingState.ts` (new), `Game.ts`, `GameContext`, `ExploringState.ts`, `WalkerMech.ts`, `CameraRig.ts`, `HUD.ts`
+Primary files: `PilotingState.ts`, `Game.ts`, `GameContext`, `ExploringState.ts`, `WalkerMech.ts`, `CameraRig.ts`, `HUD.ts`
 
 - [x] Dormant Walkers in world; procedural model + idle animation — Step **4**
-- [~] Activation: hold E fills ring; `activate()` — **not** mount/dismount — Step **5** partial
-- [ ] `PilotingState` + chase camera + Walker movement — Step **5**
+- [x] Activation + mount + dismount + remount — Step **5**
+- [x] `PilotingState` + chase camera + Walker movement — Step **5**
 - [ ] Turret, projectile, auto-aim, piloting crosshair — Step **6**
 - [ ] Walker MECH bar driven by real health when piloting — Steps **6/9**
 - [ ] Assault tier requires power cells — Step **11** (can slip after first playable piloting)

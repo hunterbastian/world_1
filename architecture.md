@@ -16,22 +16,24 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `Game.ts` | `Game` | Thin orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`, builds `GameContext`, delegates gameplay to active `GameState`. Manages environment updates, performance tiers, **ESC pause** (`paused` flag + `PauseMenu`; not a `MenuState` yet), post-FX. **Only `ExploringState` is registered**; `piloting` / `menu` IDs exist on `GameStateId` but have no state classes wired. |
+| `Game.ts` | `Game` | Thin orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`, builds `GameContext`, delegates gameplay to active `GameState`. **`mountWalker` / `dismountWalker` / `getMountedWalker`** on context. Manages environment updates, performance tiers, **ESC pause** (`paused` + `PauseMenu`; not `MenuState`), post-FX. Registers **`ExploringState`** + **`PilotingState`**; `menu` ID still unused. |
 | `Game.ts` | `.start()` | Begins the render loop |
 | `Game.ts` | `.stop()` | Cancels render loop, disposes input |
 | `Game.ts` | `.changeState(id)` | Exits current state, enters next state |
 | `Game.ts` | `.seedScene()` | Instantiates terrain, water, vegetation, sky, clouds, wind, player, camera rig, POIs, campfires, landmarks, dormant Walkers, journal, HUD, world map, pause menu, audio, post-fx |
-| `GameState.ts` | `GameState`, `GameStateId`, `GameContext` | State machine interface. States: `exploring`, `piloting`, `menu`. `GameContext` provides shared references (player, camera, terrain, HUD, etc.) that states can access. |
-| `ExploringState.ts` | `ExploringState` | On-foot **first-person** exploration. FP camera yaw/pitch via `CameraRig`, player movement, compass to nearest POI, journal toggle, world map markers, rest at camps (hold E), **Walker activation** (hold E near dormant Walker → HUD ring → `WalkerMech.activate()`). Optional dev fly toggle. |
-| `Player.ts` | `Player` | First-person player controller. WASD, sprint/stamina, jump, crouch, slide, air control; Destiny-tuned speeds. **No visible mesh** (empty `Object3D` for position). Step/landing events for audio/camera. |
-| `Player.ts` | `.update(dt, input, cameraYaw)` | Per-frame movement: accel/decel, terrain clamping, slope rejection, facing, step phase, calls animateKnight |
-| `Player.ts` | `.setWind(dirXZ)` | Updates cape flutter wind direction |
+| `GameState.ts` | `GameState`, `GameStateId`, `GameContext` | State machine interface. States: `exploring`, `piloting`, `menu`. `GameContext` includes **`mountWalker`**, **`getMountedWalker`**, **`dismountWalker`**. |
+| `ExploringState.ts` | `ExploringState` | On-foot **first-person** exploration. FP camera via `CameraRig`, player movement, compass, journal, world map, rest at camps (hold E), **Walker**: hold E near dormant or **remount** activated (shorter hold) → **`mountWalker`**. Optional dev fly toggle. |
+| `PilotingState.ts` | `PilotingState` | **Third-person chase** via `CameraRig.setThirdPersonChase`. WASD moves Walker on terrain; mouse orbits camera; Shift sprint. Hold E to dismount (ring). HUD crosshair + MECH bar placeholder. |
+| `Player.ts` | `Player` | First-person player controller when exploring. WASD, sprint/stamina, jump, crouch, slide, air control; Destiny-tuned speeds. **No visible mesh** (empty `Object3D` for position). Step/landing events for audio/camera. |
+| `Player.ts` | `.update(dt, input, cameraYaw)` | Per-frame movement: accel/decel, terrain clamping, slope rejection, facing from camera yaw. |
+| `Player.ts` | `.setWind(dirXZ)` | Reserved for future cape/flutter hooks. |
 | `KnightModel.ts` | `buildKnightModel()` | BotW-style wanderer: matte tunic/leather/cloth palette, puffy sleeves, leather bracers, exposed skin, styled hair, cowl, flowing cape + scarf. Slightly larger head (1.08x) for stylized read. Hierarchical limb groups for animation. |
 | `KnightModel.ts` | `animateKnight(limbs, dt, speed, phase)` | Speed-blended procedural animation: idle sway, walk stride, run with weight. Legs/arms counter-swing, body bobs, head counters. |
 | `Input.ts` | `Input`, `InputState` | Keyboard + mouse input. WASD, Shift sprint, E interact, Tab journal, Escape pause, pointer lock orbit. `consume()` returns and resets deltas. |
-| `CameraRig.ts` | `CameraRig` | **First-person** rig: eye height spring, mouse yaw/pitch, walk/sprint bob, landing dip, sprint FOV, slide roll, footstep shake. |
-| `CameraRig.ts` | `.addOrbitDelta(dx, dy)` | Applies mouse look (yaw/pitch) |
-| `CameraRig.ts` | `.update(dt, targetPos)` | Updates camera position at player eye + effects |
+| `CameraRig.ts` | `CameraRig` | **Modes:** `firstPerson` (default) and `thirdPersonChase` (offset camera, look-at anchor). FP: eye height spring, bob, landing dip, sprint FOV, slide roll, shake. TP: distance/height from `setThirdPersonChase`, pitch clamped for over-shoulder feel. |
+| `CameraRig.ts` | `.setFirstPerson()` / `.setThirdPersonChase(opts?)` | Switch rig mode |
+| `CameraRig.ts` | `.addOrbitDelta(dx, dy)` | Mouse look (yaw; pitch limits depend on mode) |
+| `CameraRig.ts` | `.update(dt, targetPos)` | FP: eye at `targetPos` + bob. TP: orbit behind anchor at `targetPos` |
 | `CameraRig.ts` | `.impulseFootstep(intensity)` | Triggers camera shake on player step |
 | `PerformanceManager.ts` | `PerformanceManager`, `QualityTier` | Adaptive quality tiers (high/medium/low) via EMA frame time with hysteresis and cooldown. |
 
@@ -55,7 +57,7 @@ One-liner per file and exported function/class.
 | `PointsOfInterest.ts` | `PointsOfInterest`, `POI` | Spawns ruin/shrine/camp POIs with discovery orbs. Proximity-based discovery triggers journal entries. |
 | `Campfires.ts` | `Campfires` | Campfire rings with point lights and additive ember particles (count scaled with world — see `Game.ts`). Wind-affected particle sim. |
 | `Landmarks.ts` | `Landmarks` | Places a ruined castle on the mega-mountain. Stone/iron geometry, slope-optimized placement. |
-| `WalkerMech.ts` | `WalkerTier`, `WalkerMech`, `WalkerLimbs`, `LegLimb`, `animateWalker` | Spider-tank quadruped Walker (Scout/Assault): ellipsoid dome hull, belly plate, armor collar, panel lines, bustle; sensor head (block, visor slit, sensor bumps) in rotatable Group; side-mounted weapon pylons; 4 legs as nested Group chains (hip ball → upper + panel + knee shroud → lower + panel + ankle → foot heel + 3 splayed toes). `animateWalker()` drives idle (hull bob, head nod, leg micro-settle, weapon float) and diagonal-trot walk (FL+RR / FR+RL pairs, knee lift, hull roll, head counter-motion). |
+| `WalkerMech.ts` | `WalkerTier`, `WalkerMech`, `WalkerLimbs`, `LegLimb`, `animateWalker` | Spider-tank quadruped Walker (Scout/Assault). **`mounted`** + **`setPilotMotion`**: when mounted, `update()` runs walk animation from speed; when dormant, idle stomp detection + **`animateWalker(..., 0, 0)`** for idle pose. **`pilotCameraAnchorY()`** for chase look-at height. |
 | `WalkerMechs.ts` | `WalkerMechs` | Spawns dormant Walkers with seeded biome rules: Scouts in `grassy_plains` (one near player spawn), Assaults in forest/mountains biased near ruin POIs; `walkers` list for future interaction. |
 | `noise.ts` | `makeNoise2D`, `fbm2`, `ridge2` | Deterministic simplex noise wrapper, FBM summation, ridge transform |
 
