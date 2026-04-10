@@ -16,9 +16,9 @@ Each step should be tested manually before moving to the next. New chat for each
 
 ## Step 2 — Biome tuning + procedural knight character
 
-**What:** Finalize biome visuals (grasslands, forests, mountains). Build a procedural Dark Souls-style fallen knight from Three.js primitives to replace the capsule placeholder — helmet, pauldrons, cape silhouette, sword on back. Attach to Player.ts.
+**What:** Finalize biome visuals (grasslands, forests, mountains). Build a procedural **Halo/Destiny-inspired** armored explorer from Three.js primitives to replace the capsule placeholder — helmet silhouette, light plating, cloth or tech-fabric read, optional weapon stow on back. Attach to Player.ts.
 
-**Test:** World looks like Ghibli grasslands transitioning to dark forests and snowy mountains. Player character reads as a knight from third-person camera distance.
+**Test:** World looks like Ghibli grasslands transitioning to forests and snowy mountains with mythic sci-fi ruins. Player character reads as a **sci-fi wanderer** from third-person camera distance.
 
 ---
 

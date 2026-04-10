@@ -2,9 +2,9 @@
 
 ## Vision
 
-A third-person exploration and mech-piloting game set in a mysterious procedurally generated world of mountains, grasslands, and ancient ruins. The aesthetic blends Studio Ghibli's sense of wonder with Dark Souls 1's oppressive mystery — beautiful but unsettling, with secrets buried in every ruin.
+A third-person exploration and mech-piloting game set in a mysterious procedurally generated world of mountains, grasslands, and ancient ruins. The aesthetic blends Studio Ghibli's warmth and nature with **Halo** and **Destiny** — mythic sci-fi scale, painterly light, and the feeling of walking through the remains of something vast and unknowable, without leaning on grimdark fantasy.
 
-**Reference games:** Dark Souls 1/3 (movement, exploration, weight), Breath of the Wild (discovery, open world), Skyrim (mountains, wandering).
+**Reference games:** Halo (scale, mystery, clean heroic sci-fi), Destiny (movement feel, filmic color, exploration fantasy), Breath of the Wild (discovery, open world readability), Skyrim (mountains, wandering).
 
 ## Core Loop
 
@@ -20,7 +20,7 @@ A third-person exploration and mech-piloting game set in a mysterious procedural
 
 ## The Player
 
-- On foot: Dark Souls-inspired movement. Weighty, deliberate. Walk, sprint (stamina-limited).
+- On foot: Halo/Destiny-influenced movement — responsive and readable, still weight-aware. Walk, sprint (stamina-limited).
 - No melee combat on foot initially. The player is vulnerable until they find a Walker.
 - Third-person camera at all times.
 - Stamina system already exists.
@@ -84,12 +84,12 @@ A third-person exploration and mech-piloting game set in a mysterious procedural
 
 ## Aesthetic
 
-- Studio Ghibli × Dark Souls 1.
-- Mysterious, slightly gritty, but still beautiful.
-- Muted natural colors for the world. Ruins have a weathered, ancient feel.
+- Studio Ghibli × Halo / Destiny.
+- Epic and mysterious, but **hopeful and legible** — big skies, strong silhouettes, cinematic grading rather than oppressive gloom.
+- Muted natural colors for the world. Ruins read as **lost high-tech** or Forerunner-scale geometry weathered by time.
 - Walkers have an organic-mechanical look — mossy, rusted, overgrown.
-- Void creatures are dark, inky, unsettling shapes.
-- Current stylized/low-poly direction stays, with a touch more grit.
+- Void creatures are dark, inky, alien shapes (cosmic threat, not medieval horror).
+- Stylized/low-poly direction stays, pushed toward **filmic sci-fi** (warm highlights, cool shadows, atmospheric depth).
 
 ### Visual References (`references/`)
 
@@ -104,10 +104,10 @@ A third-person exploration and mech-piloting game set in a mysterious procedural
 **Environment** (`references/environment/`)
 - Grasslands: Howl's Moving Castle rolling green hills — lush, alive, wildflowers, ponds catching sky reflections. Snow-capped mountains on the horizon. Warm light.
 - Forests: Dense green canopy, overgrown paths, earthy warm tones, dappled light. Totoro-era Ghibli.
-- Mountains/Ruins: Dark Souls fortress stone — fog below, gritty cobblestone, weathered battlements. The contrast between Ghibli warmth below and Souls grimness above.
+- Mountains/Ruins: **Halo/Destiny** lost-civilization stone and metal — monolithic forms, dramatic atmosphere, fog in the valleys, readable mega-geometry. Contrast Ghibli-soft wilds below with **mythic sci-fi** heights and ruins.
 
 **UI** (`references/ui/`)
-- Dark Souls bonfire: minimal prompt at bottom center, health/stamina/item bars tucked in corners. No clutter.
+- **Halo/Destiny-style HUD discipline:** minimal prompt at bottom center, vitals and meters tucked in corners, high readability. Futuristic clarity over ornate fantasy chrome.
 - Clean minimal design: lots of breathing room, simple typography, understated.
 
 ## Future (Not Now)
