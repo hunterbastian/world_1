@@ -26,7 +26,7 @@ One-liner per file and exported function/class.
 | `Player.ts` | `Player` | First-person player controller. WASD, sprint/stamina, jump, crouch, slide, air control; Destiny-tuned speeds. **No visible mesh** (empty `Object3D` for position). Step/landing events for audio/camera. |
 | `Player.ts` | `.update(dt, input, cameraYaw)` | Per-frame movement: accel/decel, terrain clamping, slope rejection, facing, step phase, calls animateKnight |
 | `Player.ts` | `.setWind(dirXZ)` | Updates cape flutter wind direction |
-| `KnightModel.ts` | `buildKnightModel()` | BotW-style wanderer: matte tunic/leather/cloth palette, puffy sleeves, leather bracers, exposed skin, styled hair, cowl, flowing cape + scarf. Slightly larger head (1.08x) for stylized read. Hierarchical limb groups for animation. |
+| `KnightModel.ts` | `buildKnightModel()` | Procedural Dark Souls knight: medieval steel/leather/chainmail palette, overlapping half-sphere pauldrons with ridges, segmented greaves, pointed knee cops, leather cross-straps and pouches, brown cowl, barrel helmet with horizontal ridges and visor slit. Hierarchical limb groups for animation. |
 | `KnightModel.ts` | `animateKnight(limbs, dt, speed, phase)` | Speed-blended procedural animation: idle sway, walk stride, run with weight. Legs/arms counter-swing, body bobs, head counters. |
 | `Input.ts` | `Input`, `InputState` | Keyboard + mouse input. WASD, Shift sprint, E interact, Tab journal, Escape pause, pointer lock orbit. `consume()` returns and resets deltas. |
 | `CameraRig.ts` | `CameraRig` | **First-person** rig: eye height spring, mouse yaw/pitch, walk/sprint bob, landing dip, sprint FOV, slide roll, footstep shake. |
@@ -39,7 +39,7 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `Terrain.ts` | `Terrain` | Procedural heightfield (e.g. **1500×1500**, 350 segments in `Game.ts`). FBM + ridge noise, mega-mountain with spiral carved passes. Biome assignment per vertex. |
+| `Terrain.ts` | `Terrain` | Procedural heightfield (e.g. **1500×1500**, 350 segments in `Game.ts`). FBM + ridge noise, mega-mountain with spiral carved passes. Biome assignment per vertex. Smooth biome color blending via continuous weights (mountainMask × basinFalloff, forestMask, elevation) so boundaries gradient naturally. |
 | `Terrain.ts` | `.heightAtXZ(x, z)` | Bilinear interpolated height lookup |
 | `Terrain.ts` | `.biomeAtXZ(x, z)` | Nearest-vertex biome lookup |
 | `Terrain.ts` | `.slopeAtXZ(x, z)` | Finite-difference slope magnitude |

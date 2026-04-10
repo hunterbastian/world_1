@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { Biome, type BiomeId, biomeIndex } from './Biomes'
 import { fbm2, makeNoise2D, ridge2 } from './noise'
+import { makeTerrainMaterial } from '../render/TerrainShader'
 
 export type TerrainOptions = {
   size: number
@@ -35,12 +36,7 @@ export class Terrain {
     this.geometry = new THREE.PlaneGeometry(this.size, this.size, this.segments, this.segments)
     this.geometry.rotateX(-Math.PI / 2)
 
-    this.material = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      vertexColors: true,
-      roughness: 1,
-      metalness: 0,
-    })
+    this.material = makeTerrainMaterial() as any
 
     this.material.onBeforeCompile = (shader) => {
       shader.vertexShader = /* glsl */ `
@@ -417,31 +413,56 @@ export class Terrain {
 
       pos.setY(i, h)
 
-      const c = new THREE.Color(Biome[biome].baseColor)
-
       const detailNoise = fbm2(baseNoise, x * 0.02, z * 0.02, 2, 2, 0.5)
       const microNoise = fbm2(forestNoise, x * 0.08, z * 0.08, 2, 2, 0.5)
 
-      if (biome === 'grassy_plains') {
-        const warm = new THREE.Color(0x7cc850)
-        const cool = new THREE.Color(0x4a9440)
-        c.lerp(warm, detailNoise * 0.5 + 0.5)
-        c.lerp(cool, THREE.MathUtils.clamp(microNoise * 0.3 + 0.15, 0, 0.4))
-        const elevFade = THREE.MathUtils.clamp((h - 2) / 15, 0, 1)
-        c.lerp(new THREE.Color(0x6aad4e), elevFade * 0.15)
-      } else if (biome === 'deep_forest') {
-        const canopy = new THREE.Color(0x1f5c2d)
-        const moss = new THREE.Color(0x3d7a3a)
-        c.lerp(canopy, THREE.MathUtils.clamp(detailNoise * 0.4 + 0.3, 0, 0.6))
-        c.lerp(moss, THREE.MathUtils.clamp(microNoise * 0.25, 0, 0.3))
-        const shade = THREE.MathUtils.clamp(1 - localMountainMask * 0.3, 0.7, 1)
-        c.multiplyScalar(shade)
-      } else if (biome === 'snowy_mountains') {
-        const rock = new THREE.Color(0x6c717a)
-        const snowT = THREE.MathUtils.clamp((h - snowLine) / 35, 0, 1)
-        c.lerp(rock, 1 - snowT)
-        c.lerp(new THREE.Color(0x8090a0), THREE.MathUtils.clamp(detailNoise * 0.15, 0, 0.2))
-      }
+      // Continuous blend weights for smooth biome transitions.
+      // The discrete biomeField stays hard-edged for game logic, but
+      // vertex colors use soft boundaries derived from the same noise.
+      const snowRaw =
+        THREE.MathUtils.smoothstep(localMountainMask, 0.35, 0.70) * THREE.MathUtils.smoothstep(basinFalloff, 0.35, 0.65)
+        + THREE.MathUtils.smoothstep(h, snowLine - 6, snowLine + 8) * 0.45
+      const snowW = THREE.MathUtils.clamp(snowRaw, 0, 1)
+
+      const aboveSea = THREE.MathUtils.smoothstep(h, this.seaLevel, this.seaLevel + 3)
+      const forestRaw =
+        THREE.MathUtils.smoothstep(forestMask, 0.28, 0.62)
+        * (1 - snowW * 0.85)
+        * aboveSea
+        * THREE.MathUtils.smoothstep(basinFalloff, 0.18, 0.42)
+      const forestW = THREE.MathUtils.clamp(forestRaw, 0, 1)
+
+      const plainsW = THREE.MathUtils.clamp(1 - snowW - forestW, 0, 1)
+
+      // Per-biome color with detail noise (same as before, computed independently)
+      const cPlains = new THREE.Color(Biome.grassy_plains.baseColor)
+      const warm = new THREE.Color(0x7cc850)
+      const cool = new THREE.Color(0x4a9440)
+      cPlains.lerp(warm, detailNoise * 0.5 + 0.5)
+      cPlains.lerp(cool, THREE.MathUtils.clamp(microNoise * 0.3 + 0.15, 0, 0.4))
+      const elevFade = THREE.MathUtils.clamp((h - 2) / 15, 0, 1)
+      cPlains.lerp(new THREE.Color(0x6aad4e), elevFade * 0.15)
+
+      const cForest = new THREE.Color(Biome.deep_forest.baseColor)
+      const canopy = new THREE.Color(0x1f5c2d)
+      const moss = new THREE.Color(0x3d7a3a)
+      cForest.lerp(canopy, THREE.MathUtils.clamp(detailNoise * 0.4 + 0.3, 0, 0.6))
+      cForest.lerp(moss, THREE.MathUtils.clamp(microNoise * 0.25, 0, 0.3))
+      const shade = THREE.MathUtils.clamp(1 - localMountainMask * 0.3, 0.7, 1)
+      cForest.multiplyScalar(shade)
+
+      const cSnow = new THREE.Color(Biome.snowy_mountains.baseColor)
+      const rock = new THREE.Color(0x6c717a)
+      const snowT = THREE.MathUtils.clamp((h - snowLine) / 35, 0, 1)
+      cSnow.lerp(rock, 1 - snowT)
+      cSnow.lerp(new THREE.Color(0x8090a0), THREE.MathUtils.clamp(detailNoise * 0.15, 0, 0.2))
+
+      // Weighted blend
+      const c = new THREE.Color(
+        cPlains.r * plainsW + cForest.r * forestW + cSnow.r * snowW,
+        cPlains.g * plainsW + cForest.g * forestW + cSnow.g * snowW,
+        cPlains.b * plainsW + cForest.b * forestW + cSnow.b * snowW,
+      )
 
       color.setXYZ(i, c.r, c.g, c.b)
     }
@@ -453,6 +474,15 @@ export class Terrain {
     this.geometry.computeVertexNormals()
     pos.needsUpdate = true
     color.needsUpdate = true
+
+    const biomeAttr = new Float32Array(pos.count)
+    const slopeAttr = new Float32Array(pos.count)
+    for (let i = 0; i < pos.count; i++) {
+      biomeAttr[i] = this.biomeField[i] ?? 0
+      slopeAttr[i] = this.slopeAtXZ(pos.getX(i), pos.getZ(i))
+    }
+    this.geometry.setAttribute('aBiome', new THREE.BufferAttribute(biomeAttr, 1))
+    this.geometry.setAttribute('aSlope', new THREE.BufferAttribute(slopeAttr, 1))
   }
 
   private carveMountainPasses(seed: string) {
