@@ -36,12 +36,12 @@ export class ExploringState implements GameState {
         player.update(dt, input, cameraRig.getYaw())
       }
 
-      // Feed movement state to camera for bob, FOV, roll
       cameraRig.setMovementState(
         player.speed,
         player.sprinting ? 7.0 : 5.5,
         player.sprinting,
-        player.sliding
+        player.sliding,
+        input.right
       )
       cameraRig.setEyeHeight(player.eyeHeight)
     }

@@ -205,7 +205,7 @@ export class Game {
     const sunUv = this.projectToScreenUv(skySunPos, this.camera)
     const godAmt = THREE.MathUtils.clamp(this.sky.duskAmount * 0.9 + (1 - this.sky.dayAmount) * 0.15, 0, 0.85)
     const fogAmt = THREE.MathUtils.clamp(0.06 + (1 - this.sky.dayAmount) * 0.14 + this.sky.duskAmount * 0.04, 0, 0.28)
-    this.postfx.update(dt, sunUv, godAmt * 0.55, fogAmt, this.camera.position.y)
+    this.postfx.update(dt, sunUv, godAmt * 0.55, fogAmt, this.camera.position.y, this.sky.dayAmount, this.sky.duskAmount)
     this.postfx.render(this.renderer, this.scene, this.camera)
 
     this.raf = requestAnimationFrame(this.tick)

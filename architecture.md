@@ -29,10 +29,11 @@ One-liner per file and exported function/class.
 | `KnightModel.ts` | `buildKnightModel()` | Procedural Dark Souls knight: medieval steel/leather/chainmail palette, overlapping half-sphere pauldrons with ridges, segmented greaves, pointed knee cops, leather cross-straps and pouches, brown cowl, barrel helmet with horizontal ridges and visor slit. Hierarchical limb groups for animation. |
 | `KnightModel.ts` | `animateKnight(limbs, dt, speed, phase)` | Speed-blended procedural animation: idle sway, walk stride, run with weight. Legs/arms counter-swing, body bobs, head counters. |
 | `Input.ts` | `Input`, `InputState` | Keyboard + mouse input. WASD, Shift sprint, E interact, Tab journal, Escape pause, pointer lock orbit. `consume()` returns and resets deltas. |
-| `CameraRig.ts` | `CameraRig` | **First-person** rig: eye height spring, mouse yaw/pitch, walk/sprint bob, landing dip, sprint FOV, slide roll, footstep shake. |
-| `CameraRig.ts` | `.addOrbitDelta(dx, dy)` | Applies mouse look (yaw/pitch) |
-| `CameraRig.ts` | `.update(dt, targetPos)` | Updates camera position at player eye + effects |
-| `CameraRig.ts` | `.impulseFootstep(intensity)` | Triggers camera shake on player step |
+| `CameraRig.ts` | `CameraRig` | **Destiny / Helsby boxing-style FP rig.** Lowered aim point (~3.5° below center for peripheral vision), weighted sway bob (2.4 Hz walk, 2.8 Hz sprint, minimal amplitude), momentum lean (pitch into accel, roll into strafe), under-damped landing (overshoot → settle), idle breathing, sprint FOV, slide roll. Raw 1:1 mouse input — smoothness from animation weight, not filtering. |
+| `CameraRig.ts` | `.addOrbitDelta(dx, dy)` | Applies raw mouse look (yaw/pitch, no smoothing) |
+| `CameraRig.ts` | `.setMovementState(speed, max, sprint, slide, strafe)` | Feeds movement data for bob, lean, FOV, roll |
+| `CameraRig.ts` | `.update(dt, targetPos)` | Updates camera position at player eye + all effect layers |
+| `CameraRig.ts` | `.impulseFootstep(intensity)` | Subtle camera shake on player step |
 | `PerformanceManager.ts` | `PerformanceManager`, `QualityTier` | Adaptive quality tiers (high/medium/low) via EMA frame time with hysteresis and cooldown. |
 
 ## world/
@@ -63,7 +64,7 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `PostFX.ts` | `PostFX` | EffectComposer pipeline: BotW toon ramp (2-band + warm shadow), saturated biome palette, god rays, warm-to-cool fog veil, subtle film grain. Biome ID render pass. Quality-adaptive. |
+| `PostFX.ts` | `PostFX` | EffectComposer pipeline: **Destiny-style warm/cool color grade** (cool blue-violet shadows, warm golden highlights, time-of-day driven), saturated biome palette, god rays, warm-to-cool height fog veil, **atmospheric perspective** (depth-based desaturation + blue shift for vast horizon feel), bloom, subtle film grain, chromatic aberration, vignette. Biome ID render pass. Quality-adaptive. |
 | `PostFX.ts` | `PostFX.tagBiome(mesh, idx)` | Static helper to tag meshes for biome grading |
 | `RimLight.ts` | `applyRimLightToScene`, `applyRimLightToStandardMaterial` | Patches MeshStandardMaterial with wide warm golden rim (always-on, dusk-boosted). BotW-style character pop. |
 

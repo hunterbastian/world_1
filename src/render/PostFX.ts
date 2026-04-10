@@ -15,23 +15,58 @@ import type { QualityTier } from '../game/PerformanceManager'
 
 /* ── Custom Effects ─────────────────────────────────────────── */
 
+/**
+ * Destiny-style warm/cool color grade.
+ *
+ * Shadows get a cool blue-violet push (Bungie's "mythic" ambient).
+ * Midtones stay true. Highlights get a warm golden push.
+ * A soft luminance ramp separates the bands — no hard toon edges,
+ * just a filmic warm/cool temperature split that reads as cinematic.
+ */
 class ToonRampEffect extends Effect {
   constructor() {
     super('ToonRampEffect', /* glsl */ `
+      uniform float uWarmth;
+      uniform float uCoolness;
+
       void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
         vec3 col = inputColor.rgb;
         float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
 
-        float toonBand = smoothstep(0.20, 0.52, lum);
-        vec3 warmShadow = col * vec3(0.88, 0.82, 0.92);
-        col = mix(warmShadow, col * 1.05, toonBand);
+        // Cool shadow push — blue-violet tint in dark regions
+        float shadowMask = 1.0 - smoothstep(0.08, 0.38, lum);
+        vec3 coolShadow = vec3(0.78, 0.80, 0.96);
+        col = mix(col, col * coolShadow, shadowMask * uCoolness);
 
-        float spec = smoothstep(0.80, 0.94, lum);
-        col += spec * vec3(0.10, 0.08, 0.06);
+        // Warm highlight push — golden amber in bright regions
+        float highMask = smoothstep(0.50, 0.82, lum);
+        vec3 warmHighlight = vec3(1.08, 1.02, 0.90);
+        col *= mix(vec3(1.0), warmHighlight, highMask * uWarmth);
+
+        // Subtle midtone contrast lift
+        float midMask = smoothstep(0.15, 0.45, lum) * (1.0 - smoothstep(0.55, 0.85, lum));
+        col *= 1.0 + midMask * 0.04;
+
+        // Specular bloom seed — brightest pixels get a tiny warm kick
+        float spec = smoothstep(0.85, 0.98, lum);
+        col += spec * vec3(0.06, 0.04, 0.02);
 
         outputColor = vec4(col, 1.0);
       }
-    `)
+    `, {
+      uniforms: new Map([
+        ['uWarmth', new THREE.Uniform(0.65)],
+        ['uCoolness', new THREE.Uniform(0.55)],
+      ]),
+    })
+  }
+
+  setWarmth(v: number) {
+    ;(this.uniforms.get('uWarmth') as THREE.Uniform).value = v
+  }
+
+  setCoolness(v: number) {
+    ;(this.uniforms.get('uCoolness') as THREE.Uniform).value = v
   }
 }
 
@@ -291,6 +326,82 @@ class HeightFogEffect extends Effect {
   }
 }
 
+/**
+ * Atmospheric perspective — the further something is, the more it
+ * desaturates and shifts toward a cool horizon color.
+ *
+ * Uses the depth buffer to determine distance. Replaces distant pixels
+ * with a blend toward a blue-grey horizon, simulating Rayleigh
+ * scattering. Gives the NMS / BotW / Destiny vast-horizon feel.
+ */
+class AtmoPerspectiveEffect extends Effect {
+  constructor() {
+    super('AtmoPerspectiveEffect', /* glsl */ `
+      uniform float uNear;
+      uniform float uFar;
+      uniform float uStrength;
+      uniform float uDesaturation;
+      uniform vec3  uHorizonColor;
+      uniform float uDayAmount;
+
+      float readDepth(const in vec2 uv) {
+        float d = texture2D(depthBuffer, uv).r;
+        float ndc = d * 2.0 - 1.0;
+        return (2.0 * uNear * uFar) / (uFar + uNear - ndc * (uFar - uNear));
+      }
+
+      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+        vec3 col = inputColor.rgb;
+        float depth = readDepth(uv);
+
+        // Exponential falloff — starts subtle, ramps past mid-distance
+        float t = 1.0 - exp(-depth * uStrength * 0.003);
+        t = clamp(t, 0.0, 0.85);
+
+        // Desaturate with distance
+        float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+        vec3 desat = mix(col, vec3(lum), t * uDesaturation);
+
+        // Shift toward horizon color (cool blue-grey, warmer at dusk)
+        vec3 horizonCol = uHorizonColor;
+        vec3 result = mix(desat, horizonCol, t * 0.5);
+
+        outputColor = vec4(result, 1.0);
+      }
+    `, {
+      uniforms: new Map<string, THREE.Uniform>([
+        ['uNear', new THREE.Uniform(0.1)],
+        ['uFar', new THREE.Uniform(2000)],
+        ['uStrength', new THREE.Uniform(1.0)],
+        ['uDesaturation', new THREE.Uniform(0.7)],
+        ['uHorizonColor', new THREE.Uniform(new THREE.Color(0.65, 0.72, 0.82))],
+        ['uDayAmount', new THREE.Uniform(1.0)],
+      ]),
+    })
+  }
+
+  setStrength(v: number) {
+    ;(this.uniforms.get('uStrength') as THREE.Uniform).value = v
+  }
+
+  setDesaturation(v: number) {
+    ;(this.uniforms.get('uDesaturation') as THREE.Uniform).value = v
+  }
+
+  setHorizonColor(col: THREE.Color) {
+    ;(this.uniforms.get('uHorizonColor') as THREE.Uniform).value.copy(col)
+  }
+
+  setDayAmount(v: number) {
+    ;(this.uniforms.get('uDayAmount') as THREE.Uniform).value = v
+  }
+
+  setCameraNearFar(near: number, far: number) {
+    ;(this.uniforms.get('uNear') as THREE.Uniform).value = near
+    ;(this.uniforms.get('uFar') as THREE.Uniform).value = far
+  }
+}
+
 /* ── PostFX Pipeline ────────────────────────────────────────── */
 
 export class PostFX {
@@ -305,6 +416,7 @@ export class PostFX {
   private readonly heightFog: HeightFogEffect
   private readonly grainEffect: FilmGrainEffect
   private readonly godRays: GodRaysEffect
+  private readonly atmoPerspective: AtmoPerspectiveEffect
 
   // Library effects
   private readonly normalPass: NormalPass
@@ -362,6 +474,8 @@ export class PostFX {
     this.heightFog = new HeightFogEffect()
     this.heightFog.setBiomeTexture(this.biomeTarget.texture)
 
+    this.atmoPerspective = new AtmoPerspectiveEffect()
+
     this.bloom = new BloomEffect({
       blendFunction: BlendFunction.SCREEN,
       luminanceThreshold: 0.82,
@@ -374,7 +488,7 @@ export class PostFX {
 
     this.composer.addPass(
       new EffectPass(camera as THREE.Camera,
-        this.toonRamp, this.biomeEffect, this.godRays, this.heightFog, this.bloom,
+        this.toonRamp, this.biomeEffect, this.godRays, this.heightFog, this.atmoPerspective, this.bloom,
       ),
     )
 
@@ -413,7 +527,7 @@ export class PostFX {
     this.biomeTarget.setSize(w, h)
   }
 
-  update(dt: number, sunUv: THREE.Vector2, godRayIntensity: number, fogStrength: number, camHeight = 10) {
+  update(dt: number, sunUv: THREE.Vector2, godRayIntensity: number, fogStrength: number, camHeight = 10, dayAmount = 1, duskAmount = 0) {
     this.time += dt
     this.grainEffect.setTime(this.time)
 
@@ -445,6 +559,21 @@ export class PostFX {
     this.heightFog.setStrength(fogStrength * fogMul)
     this.heightFog.setCamHeight(camHeight)
     this.heightFog.setSunScreenUv(sunUv)
+
+    // Warm/cool grading shifts with time of day — cooler shadows at night
+    this.toonRamp.setCoolness(THREE.MathUtils.lerp(0.7, 0.55, dayAmount))
+    this.toonRamp.setWarmth(THREE.MathUtils.lerp(0.3, 0.65, dayAmount) + duskAmount * 0.2)
+
+    // Atmospheric perspective — horizon color shifts with time of day
+    const dayHorizon = new THREE.Color(0.65, 0.72, 0.82)
+    const duskHorizon = new THREE.Color(0.75, 0.58, 0.48)
+    const nightHorizon = new THREE.Color(0.12, 0.14, 0.22)
+    const horizonCol = nightHorizon.clone().lerp(dayHorizon, dayAmount)
+    horizonCol.lerp(duskHorizon, duskAmount * 0.6)
+    this.atmoPerspective.setHorizonColor(horizonCol)
+    this.atmoPerspective.setDayAmount(dayAmount)
+    const atmoMul = this.quality === 'high' ? 1.0 : this.quality === 'medium' ? 0.85 : 0.7
+    this.atmoPerspective.setStrength(atmoMul)
   }
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
