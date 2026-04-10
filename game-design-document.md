@@ -2,13 +2,13 @@
 
 ## Vision
 
-A third-person exploration and mech-piloting game set in a mysterious procedurally generated world of mountains, grasslands, and ancient ruins. **Pitch:** *Studio Ghibli*, **Halo**, **Destiny**, **No Man's Sky**, and **The Last Guardian** in one tone stack — painterly nature, mythic sci-fi ruins, lonely wanderlust across a seeded world, and the **emotional scale of a giant companion** — except **you pilot the Walker**: the quadruped is your mount and presence in the world, not a separate AI partner.
+An exploration and mech-piloting game set in a mysterious procedurally generated world of mountains, grasslands, and ancient ruins. **On foot** the camera is **first-person**; **piloting a Walker** is planned as **third-person** (pulled-back chase camera) for scale and combat read. **Pitch:** *Studio Ghibli*, **Halo**, **Destiny**, **No Man's Sky**, and **The Last Guardian** in one tone stack — painterly nature, mythic sci-fi ruins, lonely wanderlust across a seeded world, and the **emotional scale of a giant companion** — except **you pilot the Walker**: the quadruped is your mount and presence in the world, not a separate AI partner.
 
 **Reference games:** Ghibli (warmth, living landscapes), Halo (clean heroic sci-fi, mystery of the ringworld-scale past), Destiny (movement feel, filmic color, loot-and-wonder loop), No Man's Sky (procedural planet-hike mood, horizon, solitude), The Last Guardian (ruins, scale, bond with something enormous — here, *being* the enormous thing), plus Breath of the Wild (readability, discovery) and Skyrim (mountains, wandering).
 
 ## Core Loop
 
-1. **Spawn** in the grasslands on foot, third-person camera.
+1. **Spawn** in the grasslands on foot, **first-person** camera.
 2. **Explore** ruins, mountains, and grasslands. Discover camps, lore, and resources.
 3. **Find a Walker Mech** — an abandoned quadruped machine left behind by an unknown civilization.
 4. **Activate it** — the first one is free. Later mechs require gathered resources (power cells, parts).
@@ -20,9 +20,9 @@ A third-person exploration and mech-piloting game set in a mysterious procedural
 
 ## The Player
 
-- On foot: Halo/Destiny-influenced movement — responsive and readable, still weight-aware. Walk, sprint (stamina-limited).
+- On foot: Halo/Destiny-influenced movement — responsive and readable, still weight-aware. Walk, sprint (stamina-limited). Jump, crouch, and slide (see `Player.ts` / `progress.md`).
 - No melee combat on foot initially. The player is vulnerable until they find a Walker.
-- Third-person camera at all times.
+- **First-person camera** on foot (no visible body in current build); **third-person** when piloting a Walker (planned — `PilotingState`).
 - Stamina system already exists.
 
 ## Walker Mechs
@@ -94,6 +94,7 @@ A third-person exploration and mech-piloting game set in a mysterious procedural
 ### Visual References (`references/`)
 
 **Walker Mechs** (`references/walker-mechs/`)
+
 - 4-legged quadrupeds with a heavy armored body and turret mounted on top.
 - Proportions: wide stance, thick articulated legs, compact hull. ~5x human height.
 - Leg style ranges from horse-like (reverse-jointed rear legs) to spider-like (splayed, angular).
@@ -102,13 +103,24 @@ A third-person exploration and mech-piloting game set in a mysterious procedural
 - All Walkers have a turret on top. No exceptions.
 
 **Environment** (`references/environment/`)
+
 - Grasslands: Howl's Moving Castle rolling green hills — lush, alive, wildflowers, ponds catching sky reflections. Snow-capped mountains on the horizon. Warm light.
 - Forests: Dense green canopy, overgrown paths, earthy warm tones, dappled light. Totoro-era Ghibli.
 - Mountains/Ruins: **Halo/Destiny** lost-civilization stone and metal — monolithic forms, dramatic atmosphere, fog in the valleys, readable mega-geometry. **Last Guardian**-style vertical ruin read: broken arches, sun shafts, places meant for something huge to climb. **No Man's Sky**-style sense of landing on a single vast place worth crossing. Contrast Ghibli-soft wilds below with mythic sci-fi heights.
 
 **UI** (`references/ui/`)
+
 - **Halo/Destiny-style HUD discipline:** minimal prompt at bottom center, vitals and meters tucked in corners, high readability. Futuristic clarity over ornate fantasy chrome.
 - Clean minimal design: lots of breathing room, simple typography, understated.
+
+## Planning docs
+
+Contributor-facing status and pillars (kept in `docs/` so AGENTS links stay short):
+
+- [docs/roadmap.md](./docs/roadmap.md) — MVP exit criteria and suggested build order
+- [docs/roadmap-status.md](./docs/roadmap-status.md) — done / partial / not started vs themes
+- [docs/game-state-transitions.md](./docs/game-state-transitions.md) — exploring / piloting / menu intent
+- [docs/experience-pillars.md](./docs/experience-pillars.md) — north-star taste checks
 
 ## Future (Not Now)
 

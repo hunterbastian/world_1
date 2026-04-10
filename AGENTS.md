@@ -8,6 +8,8 @@ Third-person exploration + mech-piloting game built with Three.js. Explore proce
 - [game-design-document.md](./game-design-document.md) — what the game is
 - [tech-stack.md](./tech-stack.md) — what it's built with
 - [architecture.md](./architecture.md) — one-liner per file and function
+- [docs/roadmap.md](./docs/roadmap.md) — MVP exit criteria + engineering order
+- [docs/roadmap-status.md](./docs/roadmap-status.md) — implementation status table
 
 ## Rules
 
