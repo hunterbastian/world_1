@@ -24,6 +24,7 @@ import { GrassField } from '../world/GrassField'
 import { PauseMenu } from '../ui/PauseMenu'
 import type { GameState, GameStateId, GameContext } from './GameState'
 import { ExploringState } from './ExploringState'
+import { PilotingState } from './PilotingState'
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
@@ -109,10 +110,12 @@ export class Game {
       journal: this.journal,
       hud: this.hud,
       worldMap: this.worldMap,
+      activeWalker: undefined,
       requestStateChange: (id) => this.changeState(id),
     }
 
     this.states.set('exploring', new ExploringState())
+    this.states.set('piloting', new PilotingState())
     this.activeState = this.states.get('exploring')!
     this.activeState.enter(this.ctx)
 
@@ -160,7 +163,10 @@ export class Game {
 
     // Environment (always updates regardless of state/pause)
     this.sky.update(dt, this.renderer)
-    this.sky.updateShadowFocus(this.player.position)
+    const shadowTarget = this.ctx.activeWalker && this.activeState.id === 'piloting'
+      ? this.ctx.activeWalker.object3d.position
+      : this.player.position
+    this.sky.updateShadowFocus(shadowTarget)
     this.rim.sunDir.copy(this.sky.sunDirection)
     this.rim.intensity = THREE.MathUtils.clamp(0.15 + this.sky.duskAmount * 0.55, 0, 0.8)
     this.cloudDome.update(dt, this.sky)

@@ -8,6 +8,7 @@ export class ExploringState implements GameState {
   private compass = { t: 0, angle: 0, has: false }
   private rest = { active: false, hold: 0, t: 0 }
   private walkerActivation = { hold: 0, nearWalkerIdx: -1 }
+  private walkerMount = { hold: 0, nearWalkerIdx: -1 }
   private devFly = false
 
   enter(_ctx: GameContext) {}
@@ -116,26 +117,28 @@ export class ExploringState implements GameState {
   private updateWalkerActivation(ctx: GameContext, dt: number, input: InputState) {
     const { player, walkers, hud } = ctx
     const activationRange = 8.0
-    const activationTime = 4.0 // seconds to hold E
+    const activationTime = 4.0
+    const mountRange = 5.0
+    const mountTime = 0.5
 
-    // Find nearest inactive walker
-    let nearestIdx = -1
-    let nearestDist = Infinity
+    // Find nearest inactive walker for activation
+    let nearestInactiveIdx = -1
+    let nearestInactiveDist = Infinity
     for (let i = 0; i < walkers.walkers.length; i++) {
       const w = walkers.walkers[i]
       if (w.activated) continue
       const d = w.object3d.position.distanceTo(player.position)
-      if (d < activationRange && d < nearestDist) {
-        nearestDist = d
-        nearestIdx = i
+      if (d < activationRange && d < nearestInactiveDist) {
+        nearestInactiveDist = d
+        nearestInactiveIdx = i
       }
     }
 
-    if (nearestIdx >= 0) {
-      // Near an inactive walker
-      if (this.walkerActivation.nearWalkerIdx !== nearestIdx) {
+    if (nearestInactiveIdx >= 0) {
+      // Near an inactive walker — activation flow
+      if (this.walkerActivation.nearWalkerIdx !== nearestInactiveIdx) {
         this.walkerActivation.hold = 0
-        this.walkerActivation.nearWalkerIdx = nearestIdx
+        this.walkerActivation.nearWalkerIdx = nearestInactiveIdx
       }
 
       if (input.interactHeld) {
@@ -147,22 +150,66 @@ export class ExploringState implements GameState {
       hud.setActivationRing(this.walkerActivation.hold)
 
       if (this.walkerActivation.hold >= 1) {
-        // Activate!
-        const walker = walkers.walkers[nearestIdx]
+        const walker = walkers.walkers[nearestInactiveIdx]
         walker.activate()
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = -1
         hud.setActivationRing(null)
       }
+
+      this.walkerMount.hold = 0
+      this.walkerMount.nearWalkerIdx = -1
+      return
+    }
+
+    // No inactive walker nearby — clear activation UI
+    if (this.walkerActivation.hold > 0) {
+      this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 1.2)
+      hud.setActivationRing(this.walkerActivation.hold > 0.01 ? this.walkerActivation.hold : null)
     } else {
-      // Not near any walker
-      if (this.walkerActivation.hold > 0) {
-        this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 1.2)
-        hud.setActivationRing(this.walkerActivation.hold > 0.01 ? this.walkerActivation.hold : null)
-      } else {
-        hud.setActivationRing(null)
+      hud.setActivationRing(null)
+    }
+    this.walkerActivation.nearWalkerIdx = -1
+
+    // Find nearest ACTIVATED walker for mounting
+    let nearestActiveIdx = -1
+    let nearestActiveDist = Infinity
+    for (let i = 0; i < walkers.walkers.length; i++) {
+      const w = walkers.walkers[i]
+      if (!w.activated) continue
+      const d = w.object3d.position.distanceTo(player.position)
+      if (d < mountRange && d < nearestActiveDist) {
+        nearestActiveDist = d
+        nearestActiveIdx = i
       }
-      this.walkerActivation.nearWalkerIdx = -1
+    }
+
+    if (nearestActiveIdx >= 0) {
+      if (this.walkerMount.nearWalkerIdx !== nearestActiveIdx) {
+        this.walkerMount.hold = 0
+        this.walkerMount.nearWalkerIdx = nearestActiveIdx
+      }
+
+      if (input.interactHeld) {
+        this.walkerMount.hold += dt
+        hud.setPrompt('Hold E to Mount')
+        if (this.walkerMount.hold >= mountTime) {
+          ctx.activeWalker = walkers.walkers[nearestActiveIdx]
+          ctx.requestStateChange('piloting')
+          this.walkerMount.hold = 0
+          this.walkerMount.nearWalkerIdx = -1
+          hud.setPrompt(null)
+          return
+        }
+      } else {
+        this.walkerMount.hold = Math.max(0, this.walkerMount.hold - dt * 2)
+        if (this.walkerMount.hold < 0.01) {
+          hud.setPrompt(null)
+        }
+      }
+    } else {
+      this.walkerMount.hold = 0
+      this.walkerMount.nearWalkerIdx = -1
     }
   }
 
