@@ -163,7 +163,7 @@ class GodRaysEffect extends Effect {
         vec3 rays = vec3(0.0);
 
         vec2 coord = uv;
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 14; i++) {
           if (float(i) >= uSamples) break;
           coord += dir * 0.014;
           vec3 s = texture2D(inputBuffer, coord).rgb;
@@ -192,7 +192,7 @@ class GodRaysEffect extends Effect {
       uniforms: new Map<string, THREE.Uniform>([
         ['uSunUv', new THREE.Uniform(new THREE.Vector2(0.5, 0.5))],
         ['uIntensity', new THREE.Uniform(0.25)],
-        ['uSamples', new THREE.Uniform(20)],
+        ['uSamples', new THREE.Uniform(14)],
       ]),
     })
   }
@@ -206,7 +206,7 @@ class GodRaysEffect extends Effect {
   }
 
   setSamples(n: number) {
-    ;(this.uniforms.get('uSamples') as THREE.Uniform).value = Math.max(2, Math.min(20, Math.floor(n)))
+    ;(this.uniforms.get('uSamples') as THREE.Uniform).value = Math.max(2, Math.min(14, Math.floor(n)))
   }
 }
 
@@ -465,9 +465,11 @@ export class PostFX {
     this.composer.addPass(new RenderPass(scene, camera))
 
     // Biome ID render target (rendered manually before composer)
-    this.biomeTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
-      depthBuffer: true,
-    })
+    this.biomeTarget = new THREE.WebGLRenderTarget(
+      Math.floor(window.innerWidth / 4),
+      Math.floor(window.innerHeight / 4),
+      { depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter },
+    )
     this.biomeTarget.texture.name = 'BiomeIdTarget'
     this.biomeOverrideMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 })
 
@@ -478,8 +480,8 @@ export class PostFX {
     // ── Pass 3: SSAO (HBAO-like ambient occlusion) ──
     this.ssao = new SSAOEffect(camera, this.normalPass.texture, {
       blendFunction: BlendFunction.MULTIPLY,
-      samples: 9,
-      rings: 7,
+      samples: 7,
+      rings: 4,
       worldDistanceThreshold: 20,
       worldDistanceFalloff: 5,
       worldProximityThreshold: 0.4,
@@ -489,7 +491,7 @@ export class PostFX {
       intensity: 1.5,
       bias: 0.025,
       fade: 0.02,
-      resolutionScale: 0.5,
+      resolutionScale: 0.4,
     })
     this.ssaoPass = new EffectPass(camera as THREE.Camera, this.ssao)
     this.composer.addPass(this.ssaoPass)
@@ -565,7 +567,7 @@ export class PostFX {
 
   resize(w: number, h: number) {
     this.composer.setSize(w, h)
-    this.biomeTarget.setSize(w, h)
+    this.biomeTarget.setSize(Math.floor(w / 4), Math.floor(h / 4))
   }
 
   update(dt: number, sunUv: THREE.Vector2, godRayIntensity: number, fogStrength: number, camHeight = 10, dayAmount = 1, duskAmount = 0) {
@@ -575,7 +577,7 @@ export class PostFX {
     const k = 1 - Math.exp(-dt * 2.2)
 
     // God ray quality
-    const targetSamples = this.quality === 'high' ? 20 : this.quality === 'medium' ? 14 : 10
+    const targetSamples = this.quality === 'high' ? 14 : this.quality === 'medium' ? 10 : 6
     const curSamples = (this.godRays.uniforms.get('uSamples') as THREE.Uniform).value as number
     this.godRays.setSamples(THREE.MathUtils.lerp(curSamples, targetSamples, k))
 

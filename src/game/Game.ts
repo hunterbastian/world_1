@@ -83,7 +83,7 @@ export class Game {
     this.renderer.toneMappingExposure = 1.18
 
     this.renderer.shadowMap.enabled = true
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.renderer.shadowMap.type = THREE.PCFShadowMap
 
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(0x0b0f16)
@@ -168,7 +168,7 @@ export class Game {
 
     // Periodically refresh IBL to track day/night shifts
     this.iblTimer += dt
-    if (this.iblTimer > 30) {
+    if (this.iblTimer > 90) {
       this.iblTimer = 0
       this.buildIBL()
     }
@@ -272,7 +272,7 @@ export class Game {
     this.grass = new GrassField({
       terrain: this.terrain,
       seed: 'world-seed-001',
-      count: 55000,
+      count: 35000,
     })
     this.grass.setQuality(this.qualityTier)
     this.scene.add(this.grass.object3d)
