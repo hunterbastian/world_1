@@ -164,7 +164,7 @@ export class ExploringState implements GameState {
       if (this.walkerActivation.hold >= 1) {
         const walker = walkers.walkers[nearestInactiveIdx]
         const audioCtx = ctx.audio.listener.context
-        this.cinematic.start(walker, ctx.cameraRig, ctx.postfx, audioCtx)
+        this.cinematic.start(walker, ctx.cameraRig, ctx.postfx, audioCtx, ctx.camera)
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = -1
         hud.setActivationRing(null)

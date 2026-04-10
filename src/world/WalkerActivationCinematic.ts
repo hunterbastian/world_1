@@ -17,6 +17,7 @@ export class WalkerActivationCinematic {
   private t = 0
   private walker: WalkerMech | null = null
   private cameraRig: CameraRig | null = null
+  private camera: THREE.PerspectiveCamera | null = null
   private audioCtx: AudioContext | null = null
 
   // (original material intensities restored by setDormant(false))
@@ -31,11 +32,13 @@ export class WalkerActivationCinematic {
     cameraRig: CameraRig,
     _postfx: PostFX,
     audioCtx: AudioContext | null,
+    camera?: THREE.PerspectiveCamera,
   ) {
     this.active = true
     this.t = 0
     this.walker = walker
     this.cameraRig = cameraRig
+    this.camera = camera ?? null
     this.audioCtx = audioCtx
     walker.eyeMat.emissiveIntensity = 0
     walker.radiolariaMat.emissiveIntensity = 0.15
@@ -49,9 +52,14 @@ export class WalkerActivationCinematic {
 
     // ── BEAT 1: The Hush (0.0–1.2s) ──
     if (this.t < 1.2) {
-      // Trigger the metallic tick at 0.8s
       if (prev < 0.8 && this.t >= 0.8) {
         this.playTick()
+      }
+      // FOV narrows: 65 → 58 over 1.2s
+      if (this.camera) {
+        const fovT = Math.min(1, this.t / 1.2)
+        this.camera.fov = THREE.MathUtils.lerp(65, 58, fovT)
+        this.camera.updateProjectionMatrix()
       }
     }
 
@@ -123,6 +131,14 @@ export class WalkerActivationCinematic {
     if (prev < 4.2 && this.t >= 4.2) {
       this.playHiss()
       this.playServoWhine()
+    }
+
+    // FOV eases back: 58 → 65 over the rising phase
+    if (this.t >= 4.2 && this.t < 6.0 && this.camera) {
+      const fovT = Math.min(1, (this.t - 4.2) / 1.5)
+      const eased = 1 - Math.pow(1 - fovT, 2)
+      this.camera.fov = THREE.MathUtils.lerp(58, 65, eased)
+      this.camera.updateProjectionMatrix()
     }
 
     // Legs extend, hull rises — ease-out with tiny overshoot

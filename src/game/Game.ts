@@ -312,6 +312,8 @@ export class Game {
     this.hud.setHealth(1.0)
     this.hud.setXP(0)
 
+    this.showControlsHint()
+
     this.pauseMenu = new PauseMenu()
     document.body.appendChild(this.pauseMenu.root)
     this.pauseMenu.onResume = () => {
@@ -396,5 +398,30 @@ export class Game {
   private projectToScreenUv(worldPos: THREE.Vector3, camera: THREE.Camera) {
     const v = worldPos.clone().project(camera)
     return new THREE.Vector2(v.x * 0.5 + 0.5, v.y * 0.5 + 0.5)
+  }
+
+  private showControlsHint() {
+    const hint = document.createElement('div')
+    Object.assign(hint.style, {
+      position: 'fixed',
+      bottom: '72px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      font: `500 11px/1.6 'Barlow Condensed', system-ui, sans-serif`,
+      letterSpacing: '0.18em',
+      textTransform: 'uppercase',
+      color: 'rgba(255,255,255,0.55)',
+      textAlign: 'center',
+      pointerEvents: 'none',
+      opacity: '0',
+      transition: 'opacity 0.8s ease',
+      zIndex: '15',
+      whiteSpace: 'pre-line',
+    })
+    hint.textContent = 'WASD to move  ·  Hold E to interact  ·  Shift to sprint'
+    document.body.appendChild(hint)
+    setTimeout(() => { hint.style.opacity = '1' }, 2000)
+    setTimeout(() => { hint.style.opacity = '0' }, 8000)
+    setTimeout(() => { hint.remove() }, 9500)
   }
 }
