@@ -180,17 +180,28 @@ For Glasswake, voxel terrain would pipe through the same Destiny-style rendering
 
 ## Recommended Priority for Glasswake
 
-### Done
-1. ~~**Camera feel**~~ — Destiny boxing-style weight, lowered aim point, momentum lean ✓
+### Done (visual stack)
+1. ~~**Camera feel**~~ — boxing-style weight, lowered aim point, momentum lean, weighted bob ✓
 2. ~~**Warm/cool color grading**~~ — cool shadows / warm highlights, time-of-day driven ✓
 3. ~~**Atmospheric perspective**~~ — depth-based desaturation + blue shift ✓
+4. ~~**Depth of field**~~ — subtle gameplay DOF via DepthOfFieldEffect, quality-adaptive ✓
+5. ~~**Eye adaptation**~~ — auto-exposure from scene luminance, smooth adaptation ✓
+6. ~~**Tree shadows**~~ — castShadow + receiveShadow enabled ✓
+7. ~~**Tree aesthetics**~~ — clustered canopy, 3-color palette, SSS, rim, leaf flutter ✓
+8. ~~**HUD rework**~~ — Destiny-style curved arc bars, compass strip, clean prompts ✓
 
-### Next up (visual stack)
-4. **Ambient particles** — pollen, dust, snow, fireflies. Huge atmosphere per effort
-5. **Depth of field** — even subtle, adds cinematic quality
-6. **Eye adaptation** — auto-exposure for interior/exterior transitions
-7. **Tree shadows** — currently disabled, free depth in forests
+### Next up (visual + feel)
+9. **Ambient particles** — pollen, dust motes, snow flurries, fireflies at dusk
 
-### Future (terrain architecture)
-8. **Voxel terrain hybrid** — marching cubes volumes in POI zones alongside heightmap
-9. **Full voxel terrain** — replace heightmap entirely if hybrid proves out
+### Next up (gameplay — MVP core loop)
+10. **PilotingState + mounting** — the activation dead-end fix (MVP Step 5)
+11. **Turret + projectiles** — fire from Walker (MVP Step 6)
+12. **Enemies** — void creatures, basic AI, XP drops (MVP Step 7)
+13. **Health + damage** — player/Walker HP, death/respawn/eject (MVP Step 9)
+14. **XP + leveling** — kill→XP pipeline, camp level-up (MVP Step 8)
+15. **Pause menu wired** — live stats, Restart button (MVP Step 10)
+
+### Later
+16. **Resource pickups + tier gates** — power cells for Assault activation (MVP Step 11)
+17. **Voxel terrain hybrid** — marching cubes in POI zones (caves, overhangs)
+18. **Full voxel terrain** — replace heightmap if hybrid proves out
