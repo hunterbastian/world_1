@@ -110,6 +110,8 @@ export class Game {
       journal: this.journal,
       hud: this.hud,
       worldMap: this.worldMap,
+      audio: this.audio,
+      postfx: this.postfx,
       activeWalker: undefined,
       requestStateChange: (id) => this.changeState(id),
     }

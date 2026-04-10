@@ -45,6 +45,8 @@ export class ChaseCam {
     this.fov = config.fov
   }
 
+  beginTransition() { this.enterTransition() }
+
   enterTransition() {
     this.transitionFrom.copy(this.camera.position)
     const lookDir = new THREE.Vector3()

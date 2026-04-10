@@ -58,8 +58,9 @@ One-liner per file and exported function/class.
 | `PointsOfInterest.ts` | `PointsOfInterest`, `POI` | Spawns ruin/shrine/camp POIs with discovery orbs. Proximity-based discovery triggers journal entries. |
 | `Campfires.ts` | `Campfires` | Campfire rings with point lights and additive ember particles (count scaled with world — see `Game.ts`). Wind-affected particle sim. |
 | `Landmarks.ts` | `Landmarks` | Places a ruined castle on the mega-mountain. Stone/iron geometry, slope-optimized placement. |
-| `WalkerMech.ts` | `WalkerTier`, `WalkerMech`, `WalkerLimbs`, `LegLimb`, `animateWalker` | Spider-tank quadruped Walker (Scout/Assault): ellipsoid dome hull, belly plate, armor collar, panel lines, bustle; sensor head (block, visor slit, sensor bumps) in rotatable Group; side-mounted weapon pylons; 4 legs as nested Group chains (hip ball → upper + panel + knee shroud → lower + panel + ankle → foot heel + 3 splayed toes). `animateWalker()` drives idle (hull bob, head nod, leg micro-settle, weapon float) and diagonal-trot walk (FL+RR / FR+RL pairs, knee lift, hull roll, head counter-motion). |
-| `WalkerMechs.ts` | `WalkerMechs` | Spawns dormant Walkers with seeded biome rules: Scouts in `grassy_plains` (one near player spawn), Assaults in forest/mountains biased near ruin POIs; `walkers` list for future interaction. |
+| `WalkerMech.ts` | `WalkerTier`, `WalkerMech`, `WalkerLimbs`, `LegLimb`, `animateWalker` | Spider-tank quadruped Walker (Scout/Assault). Vex-inspired materials (radiolaria glow, cyclops eye). `setDormant(bool)` controls crouched/standing pose + material emissive states. `animateWalker()` drives idle and diagonal-trot walk. |
+| `WalkerMechs.ts` | `WalkerMechs` | Spawns dormant Walkers with seeded biome rules. All start in dormant pose. |
+| `WalkerActivationCinematic.ts` | `WalkerActivationCinematic` | 6-second choreographed walker awakening: "The Hush" (world quiets) → "First Light" (radiolaria pulses) → "The Eye" (cyclops flickers on, sacred tone) → "Rising" (walker stands from dormant crouch). All audio procedural via Web Audio API. |
 | `noise.ts` | `makeNoise2D`, `fbm2`, `ridge2` | Deterministic simplex noise wrapper, FBM summation, ridge transform |
 
 ## render/

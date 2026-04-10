@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { GameState, GameContext } from './GameState'
 import type { InputState } from './Input'
+import { WalkerActivationCinematic } from '../world/WalkerActivationCinematic'
 
 export class ExploringState implements GameState {
   readonly id = 'exploring' as const
@@ -9,7 +10,7 @@ export class ExploringState implements GameState {
   private rest = { active: false, hold: 0, t: 0 }
   private walkerActivation = { hold: 0, nearWalkerIdx: -1 }
   private walkerMount = { hold: 0, nearWalkerIdx: -1 }
-  private activationCinematic = { active: false, t: 0, targetPos: new THREE.Vector3() }
+  private readonly cinematic = new WalkerActivationCinematic()
   private devFly = false
 
   enter(_ctx: GameContext) {}
@@ -30,16 +31,14 @@ export class ExploringState implements GameState {
     // FP camera: mouse → camera yaw/pitch
     cameraRig.addOrbitDelta(input.mouseDeltaX, input.mouseDeltaY)
 
-    // Activation cinematic — freeze player, camera looks at Walker
-    if (this.activationCinematic.active) {
-      this.activationCinematic.t += dt
-      const dur = 2.0
-      if (this.activationCinematic.t >= dur) {
-        this.activationCinematic.active = false
-      }
+    if (this.cinematic.isActive()) {
+      const still = this.cinematic.update(dt)
       cameraRig.setMovementState(0, 1, false, false, 0)
       cameraRig.setEyeHeight(player.standingEyeHeight)
       cameraRig.update(dt, player.position)
+      if (!still) {
+        ctx.hud.setPrompt(null)
+      }
       return
     }
 
@@ -164,14 +163,11 @@ export class ExploringState implements GameState {
 
       if (this.walkerActivation.hold >= 1) {
         const walker = walkers.walkers[nearestInactiveIdx]
-        walker.activate()
+        const audioCtx = ctx.audio.listener.context
+        this.cinematic.start(walker, ctx.cameraRig, ctx.postfx, audioCtx)
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = -1
         hud.setActivationRing(null)
-        this.activationCinematic.active = true
-        this.activationCinematic.t = 0
-        this.activationCinematic.targetPos.copy(walker.object3d.position)
-        this.activationCinematic.targetPos.y += 2.5
       }
 
       this.walkerMount.hold = 0
