@@ -35,40 +35,65 @@ export class HUD {
       zIndex: '10',
     })
 
-    // ── Vitals cluster (bottom-left) — Destiny puts vitals low ──
-    const vitals = this.makeDiv({
+    // ── Curved vitals (bottom-center-left) — Destiny arc style ──
+    const vitalsWrap = this.makeDiv({
       position: 'absolute',
       left: '28px',
-      bottom: '28px',
+      bottom: '20px',
+    })
+    this.root.appendChild(vitalsWrap)
+
+    // Health arc (outer, larger)
+    const hpArc = this.makeArcBar({
+      radius: 90,
+      stroke: 3.5,
+      startAngle: 200,
+      endAngle: 340,
+      trackColor: 'rgba(255,255,255,0.06)',
+      fillColorA: '#c03040',
+      fillColorB: '#e04858',
+      label: 'HP',
+      glowColor: '#e04858',
+    })
+    this.healthFill = hpArc.fillPath as unknown as HTMLDivElement
+    this.healthGlow = hpArc.glowPath as unknown as HTMLDivElement
+    vitalsWrap.appendChild(hpArc.container)
+
+    // Stamina arc (inner, slightly smaller)
+    const staArc = this.makeArcBar({
+      radius: 78,
+      stroke: 2.5,
+      startAngle: 205,
+      endAngle: 335,
+      trackColor: 'rgba(255,255,255,0.05)',
+      fillColorA: 'rgba(255,255,255,0.45)',
+      fillColorB: 'rgba(255,255,255,0.85)',
+      label: 'STA',
+      glowColor: null,
+    })
+    this.staminaFill = staArc.fillPath as unknown as HTMLDivElement
+    vitalsWrap.appendChild(staArc.container)
+
+    // XP and MECH stay as straight bars below the arcs
+    const straightBars = this.makeDiv({
+      position: 'relative',
+      top: '-30px',
+      left: '18px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '6px',
+      gap: '5px',
     })
-    this.root.appendChild(vitals)
+    vitalsWrap.appendChild(straightBars)
 
-    // Health bar
-    const hpRow = this.makeBarRow('HP', '#e04858', '#c03040')
-    this.healthFill = hpRow.fill
-    this.healthGlow = hpRow.glow
-    vitals.appendChild(hpRow.row)
-
-    // Stamina bar
-    const staRow = this.makeBarRow('STA', 'rgba(255,255,255,0.85)', 'rgba(255,255,255,0.55)')
-    this.staminaFill = staRow.fill
-    vitals.appendChild(staRow.row)
-
-    // XP bar (wider, with level indicator)
     const xpRow = this.makeBarRow('XP', '#50a8e8', '#3078b8')
     this.xpFill = xpRow.fill
-    // xpRow.label available for level display later
-    vitals.appendChild(xpRow.row)
+    straightBars.appendChild(xpRow.row)
 
-    // Walker MECH bar (hidden until piloting)
     const wkRow = this.makeBarRow('MECH', '#40c898', '#28a880')
     this.walkerBar = wkRow.row
     this.walkerFill = wkRow.fill
     wkRow.row.style.display = 'none'
-    vitals.appendChild(wkRow.row)
+    straightBars.appendChild(wkRow.row)
 
     // ── Compass strip (top-center) ──
     const compassWrap = this.makeDiv({
@@ -167,20 +192,25 @@ export class HUD {
 
   setHealth(v01: number) {
     const v = Math.max(0, Math.min(1, v01))
-    this.healthFill.style.transform = `scaleX(${v})`
+    const el = this.healthFill as unknown as SVGPathElement
+    const total = parseFloat(el.getAttribute('data-total') || '1')
+    el.style.strokeDashoffset = String(total * (1 - v))
+    const glow = this.healthGlow as unknown as SVGPathElement
     if (v < 0.25) {
-      this.healthFill.style.animation = 'hudPulse 1s ease-in-out infinite'
-      this.healthGlow.style.opacity = '0.6'
+      el.style.animation = 'hudPulse 1s ease-in-out infinite'
+      glow.style.opacity = '0.5'
     } else {
-      this.healthFill.style.animation = 'none'
-      this.healthGlow.style.opacity = '0'
+      el.style.animation = 'none'
+      glow.style.opacity = '0'
     }
   }
 
   setStamina(v01: number) {
     const v = Math.max(0, Math.min(1, v01))
-    this.staminaFill.style.transform = `scaleX(${v})`
-    this.staminaFill.style.opacity = v < 0.08 ? '0.3' : '1'
+    const el = this.staminaFill as unknown as SVGPathElement
+    const total = parseFloat(el.getAttribute('data-total') || '1')
+    el.style.strokeDashoffset = String(total * (1 - v))
+    el.style.opacity = v < 0.08 ? '0.3' : '1'
   }
 
   setXP(v01: number) {
@@ -429,5 +459,139 @@ export class HUD {
       height: `${h}px`,
       background: color,
     })
+  }
+
+  private makeArcBar(opts: {
+    radius: number
+    stroke: number
+    startAngle: number
+    endAngle: number
+    trackColor: string
+    fillColorA: string
+    fillColorB: string
+    label: string
+    glowColor: string | null
+  }) {
+    const { radius, stroke, startAngle, endAngle, trackColor, fillColorA, fillColorB, label, glowColor } = opts
+    const size = radius * 2 + stroke * 2 + 8
+    const cx = size / 2
+    const cy = size / 2
+
+    const toRad = (deg: number) => (deg * Math.PI) / 180
+    const arcPath = (r: number, s: number, e: number) => {
+      const x1 = cx + r * Math.cos(toRad(s))
+      const y1 = cy + r * Math.sin(toRad(s))
+      const x2 = cx + r * Math.cos(toRad(e))
+      const y2 = cy + r * Math.sin(toRad(e))
+      const sweep = e - s > 180 ? 1 : 0
+      return `M ${x1} ${y1} A ${r} ${r} 0 ${sweep} 1 ${x2} ${y2}`
+    }
+
+    const container = this.makeDiv({
+      position: 'absolute',
+      left: '0',
+      bottom: '0',
+      width: `${size}px`,
+      height: `${size}px`,
+      pointerEvents: 'none',
+    })
+
+    const ns = 'http://www.w3.org/2000/svg'
+    const svg = document.createElementNS(ns, 'svg')
+    svg.setAttribute('width', String(size))
+    svg.setAttribute('height', String(size))
+    svg.style.overflow = 'visible'
+
+    const gradId = `grad-${label.toLowerCase()}-${Math.random().toString(36).slice(2, 6)}`
+    const defs = document.createElementNS(ns, 'defs')
+    const grad = document.createElementNS(ns, 'linearGradient')
+    grad.setAttribute('id', gradId)
+    grad.setAttribute('gradientUnits', 'userSpaceOnUse')
+    const x1 = cx + radius * Math.cos(toRad(startAngle))
+    const y1 = cy + radius * Math.sin(toRad(startAngle))
+    const x2 = cx + radius * Math.cos(toRad(endAngle))
+    const y2 = cy + radius * Math.sin(toRad(endAngle))
+    grad.setAttribute('x1', String(x1))
+    grad.setAttribute('y1', String(y1))
+    grad.setAttribute('x2', String(x2))
+    grad.setAttribute('y2', String(y2))
+    const stop1 = document.createElementNS(ns, 'stop')
+    stop1.setAttribute('offset', '0%')
+    stop1.setAttribute('stop-color', fillColorA)
+    const stop2 = document.createElementNS(ns, 'stop')
+    stop2.setAttribute('offset', '100%')
+    stop2.setAttribute('stop-color', fillColorB)
+    grad.appendChild(stop1)
+    grad.appendChild(stop2)
+    defs.appendChild(grad)
+    svg.appendChild(defs)
+
+    const d = arcPath(radius, startAngle, endAngle)
+
+    // Track
+    const track = document.createElementNS(ns, 'path')
+    track.setAttribute('d', d)
+    track.setAttribute('fill', 'none')
+    track.setAttribute('stroke', trackColor)
+    track.setAttribute('stroke-width', String(stroke))
+    track.setAttribute('stroke-linecap', 'round')
+    svg.appendChild(track)
+
+    // Fill
+    const fillPath = document.createElementNS(ns, 'path')
+    fillPath.setAttribute('d', d)
+    fillPath.setAttribute('fill', 'none')
+    fillPath.setAttribute('stroke', `url(#${gradId})`)
+    fillPath.setAttribute('stroke-width', String(stroke))
+    fillPath.setAttribute('stroke-linecap', 'round')
+    svg.appendChild(fillPath)
+
+    // Glow (behind fill, blurred)
+    let glowPath: SVGPathElement | null = null
+    if (glowColor) {
+      glowPath = document.createElementNS(ns, 'path')
+      glowPath.setAttribute('d', d)
+      glowPath.setAttribute('fill', 'none')
+      glowPath.setAttribute('stroke', glowColor)
+      glowPath.setAttribute('stroke-width', String(stroke + 4))
+      glowPath.setAttribute('stroke-linecap', 'round')
+      glowPath.style.filter = 'blur(6px)'
+      glowPath.style.opacity = '0'
+      glowPath.style.transition = 'opacity 300ms ease'
+      svg.insertBefore(glowPath, fillPath)
+    }
+
+    // Label at the start of the arc
+    const lblX = cx + (radius + 14) * Math.cos(toRad(startAngle - 5))
+    const lblY = cy + (radius + 14) * Math.sin(toRad(startAngle - 5))
+    const text = document.createElementNS(ns, 'text')
+    text.setAttribute('x', String(lblX))
+    text.setAttribute('y', String(lblY))
+    text.setAttribute('fill', 'rgba(255,255,255,0.25)')
+    text.setAttribute('font-family', this.font)
+    text.setAttribute('font-size', '8')
+    text.setAttribute('font-weight', '600')
+    text.setAttribute('letter-spacing', '0.2em')
+    text.textContent = label
+    svg.appendChild(text)
+
+    container.appendChild(svg as unknown as Node)
+
+    // We need to measure the path length after it's in the DOM.
+    // Use a deferred setup via requestAnimationFrame.
+    requestAnimationFrame(() => {
+      const len = fillPath.getTotalLength()
+      fillPath.style.strokeDasharray = String(len)
+      fillPath.style.strokeDashoffset = '0'
+      fillPath.style.transition = 'stroke-dashoffset 80ms linear'
+      fillPath.setAttribute('data-total', String(len))
+
+      if (glowPath) {
+        glowPath.style.strokeDasharray = String(len)
+        glowPath.style.strokeDashoffset = '0'
+      }
+    })
+
+    return { container, fillPath, glowPath: glowPath || fillPath }
   }
 }
