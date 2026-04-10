@@ -26,7 +26,7 @@ export class PauseMenu {
   public onResume: (() => void) | null = null
   public onQuit: (() => void) | null = null
 
-  private readonly panel: HTMLDivElement
+  private readonly contentArea: HTMLDivElement
   private readonly charSection: HTMLDivElement
   private readonly walkerSection: HTMLDivElement
   private readonly inventorySection: HTMLDivElement
@@ -43,9 +43,6 @@ export class PauseMenu {
   private walkerStats: WalkerStats | null = null
   private inventory: InventoryItem[] = []
 
-  private static readonly F =
-    'system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
-
   constructor() {
     this.root = document.createElement('div')
     this.root.id = 'pause-menu'
@@ -57,7 +54,7 @@ export class PauseMenu {
       placeItems: 'center',
       opacity: '0',
       visibility: 'hidden',
-      transition: 'opacity 160ms ease',
+      transition: 'opacity 200ms ease',
       zIndex: '30',
     })
 
@@ -66,71 +63,76 @@ export class PauseMenu {
     Object.assign(scrim.style, { position: 'absolute', inset: '0' })
     this.root.appendChild(scrim)
 
-    this.panel = document.createElement('div')
-    this.panel.className = 'ui-panel ui-scroll'
-    Object.assign(this.panel.style, {
-      position: 'relative',
-      width: 'min(380px, calc(100vw - 48px))',
-      maxHeight: 'min(560px, calc(100vh - 48px))',
-      overflow: 'auto',
-      pointerEvents: 'auto',
-      padding: '28px 32px',
-    })
-    this.root.appendChild(this.panel)
+    const shell = document.createElement('div')
+    shell.className = 'pause-menu-shell'
 
-    // Title
-    const title = document.createElement('div')
-    Object.assign(title.style, {
-      textAlign: 'center',
-      font: `300 13px/1 ${PauseMenu.F}`,
-      letterSpacing: '3px',
-      textTransform: 'uppercase',
-      color: 'rgba(255,255,255,0.50)',
-    })
-    title.textContent = 'Paused'
-    this.panel.appendChild(title)
+    const nav = document.createElement('nav')
+    nav.className = 'pause-menu-nav'
+    nav.setAttribute('aria-label', 'Pause actions')
 
-    const topDiv = document.createElement('div')
-    topDiv.className = 'ui-divider'
-    this.panel.appendChild(topDiv)
-
-    this.charSection = document.createElement('div')
-    this.panel.appendChild(this.charSection)
-
-    this.walkerSection = document.createElement('div')
-    this.panel.appendChild(this.walkerSection)
-
-    this.inventorySection = document.createElement('div')
-    this.panel.appendChild(this.inventorySection)
-
-    const btnDiv = document.createElement('div')
-    btnDiv.className = 'ui-divider'
-    this.panel.appendChild(btnDiv)
-
-    const btnRow = document.createElement('div')
-    Object.assign(btnRow.style, {
-      display: 'flex',
-      justifyContent: 'center',
-      gap: '12px',
-    })
-    this.panel.appendChild(btnRow)
+    const navLabel = document.createElement('p')
+    navLabel.className = 'pause-menu-nav-label'
+    navLabel.textContent = 'Directives'
+    nav.appendChild(navLabel)
 
     const resumeBtn = document.createElement('button')
-    resumeBtn.className = 'ui-btn'
+    resumeBtn.type = 'button'
+    resumeBtn.className = 'pause-menu-nav-btn pause-menu-nav-btn--primary'
     resumeBtn.textContent = 'Resume'
     resumeBtn.addEventListener('click', () => {
       this.setOpen(false)
       this.onResume?.()
     })
-    btnRow.appendChild(resumeBtn)
+    nav.appendChild(resumeBtn)
 
     const quitBtn = document.createElement('button')
-    quitBtn.className = 'ui-btn'
+    quitBtn.type = 'button'
+    quitBtn.className = 'pause-menu-nav-btn pause-menu-nav-btn--danger'
     quitBtn.textContent = 'Quit'
     quitBtn.addEventListener('click', () => {
       this.onQuit?.()
     })
-    btnRow.appendChild(quitBtn)
+    nav.appendChild(quitBtn)
+
+    const main = document.createElement('div')
+    main.className = 'pause-menu-main'
+
+    const header = document.createElement('header')
+    header.className = 'pause-menu-header'
+
+    const gameLine = document.createElement('p')
+    gameLine.className = 'pause-menu-game'
+    gameLine.textContent = 'Glasswake'
+
+    const tagLine = document.createElement('p')
+    tagLine.className = 'pause-menu-tag'
+    tagLine.textContent = 'Session suspended'
+
+    const title = document.createElement('h1')
+    title.className = 'pause-menu-title'
+    title.textContent = 'Paused'
+
+    header.appendChild(gameLine)
+    header.appendChild(tagLine)
+    header.appendChild(title)
+    main.appendChild(header)
+
+    this.contentArea = document.createElement('div')
+    this.contentArea.className = 'pause-menu-body ui-scroll'
+
+    this.charSection = document.createElement('div')
+    this.contentArea.appendChild(this.charSection)
+
+    this.walkerSection = document.createElement('div')
+    this.contentArea.appendChild(this.walkerSection)
+
+    this.inventorySection = document.createElement('div')
+    this.contentArea.appendChild(this.inventorySection)
+
+    main.appendChild(this.contentArea)
+    shell.appendChild(nav)
+    shell.appendChild(main)
+    this.root.appendChild(shell)
 
     this.renderSections()
   }
@@ -147,7 +149,6 @@ export class PauseMenu {
     this.open = open
     this.root.style.opacity = open ? '1' : '0'
     this.root.style.pointerEvents = open ? 'auto' : 'none'
-    this.panel.style.pointerEvents = open ? 'auto' : 'none'
     this.root.style.visibility = open ? 'visible' : 'hidden'
     if (open) this.renderSections()
   }
@@ -190,7 +191,7 @@ export class PauseMenu {
     const s = this.walkerStats
     if (!s) return
 
-    this.walkerSection.style.marginTop = '8px'
+    this.walkerSection.style.marginTop = '14px'
     this.walkerSection.appendChild(this.makeSectionHeader(`Walker \u2014 ${s.name}`))
     this.walkerSection.appendChild(this.makeDivider())
     this.walkerSection.appendChild(this.makeStatRow('Tier', s.tier))
@@ -201,7 +202,7 @@ export class PauseMenu {
 
   private renderInventory() {
     this.inventorySection.replaceChildren()
-    this.inventorySection.style.marginTop = '8px'
+    this.inventorySection.style.marginTop = '14px'
 
     this.inventorySection.appendChild(this.makeSectionHeader('Inventory'))
     this.inventorySection.appendChild(this.makeDivider())
@@ -209,8 +210,8 @@ export class PauseMenu {
     if (this.inventory.length === 0) {
       const empty = document.createElement('div')
       Object.assign(empty.style, {
-        font: `300 12px/1.4 ${PauseMenu.F}`,
-        color: 'rgba(255,255,255,0.22)',
+        font: `500 12px/1.4 var(--ui-font-display), system-ui, sans-serif`,
+        color: 'rgba(255,255,255,0.28)',
         fontStyle: 'italic',
         padding: '2px 0',
       })
