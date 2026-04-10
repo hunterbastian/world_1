@@ -507,12 +507,12 @@ export class PostFX {
 
     this.bloom = new BloomEffect({
       blendFunction: BlendFunction.SCREEN,
-      luminanceThreshold: 0.82,
-      luminanceSmoothing: 0.08,
+      luminanceThreshold: 0.62,
+      luminanceSmoothing: 0.12,
       mipmapBlur: true,
-      intensity: 0.5,
-      radius: 0.75,
-      levels: 6,
+      intensity: 0.35,
+      radius: 0.85,
+      levels: 5,
     })
 
     this.composer.addPass(
@@ -557,7 +557,7 @@ export class PostFX {
     this.ssaoPass.enabled = tier !== 'low'
     this.normalPass.enabled = tier !== 'low'
 
-    this.bloom.intensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.35 : 0.5
+    this.bloom.intensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.25 : 0.35
 
     this.dofPass.enabled = tier !== 'low'
     this.dof.bokehScale = tier === 'high' ? 1.5 : 1.0

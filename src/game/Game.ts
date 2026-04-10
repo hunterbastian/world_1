@@ -227,7 +227,7 @@ export class Game {
   }
 
   private seedScene() {
-    const hemi = new THREE.HemisphereLight(0xd0e8ff, 0x4a5a48, 0.85)
+    const hemi = new THREE.HemisphereLight(0xc8deff, 0x8a7860, 1.0)
     this.scene.add(hemi)
 
     this.sky = new SkySystem({ scene: this.scene })

@@ -25,7 +25,7 @@ export class SkySystem {
     this.sky.scale.setScalar(4500)
     this.scene.add(this.sky)
 
-    this.sunLight = new THREE.DirectionalLight(0xffffff, 1.15)
+    this.sunLight = new THREE.DirectionalLight(0xfff4e8, 1.3)
     this.sunLight.position.set(100, 200, 50)
 
     this.sunLight.castShadow = true
@@ -73,18 +73,18 @@ export class SkySystem {
     // Warmer dusk/dawn
     const duskAmt = Math.exp(-Math.pow((sunHeight - 0.08) / 0.16, 2))
     this.duskAmount = duskAmt
-    const sunColor = new THREE.Color(0xffffff)
-      .lerp(new THREE.Color(0xffc38a), duskAmt)
-      .lerp(new THREE.Color(0x9db6ff), 1 - dayAmt)
+    const sunColor = new THREE.Color(0xfff0d8)
+      .lerp(new THREE.Color(0xffaa60), duskAmt)
+      .lerp(new THREE.Color(0x8eaadd), 1 - dayAmt)
     this.sunLight.color.copy(sunColor)
-    this.sunLight.intensity = THREE.MathUtils.lerp(0.05, 1.2, dayAmt)
+    this.sunLight.intensity = THREE.MathUtils.lerp(0.06, 1.4, dayAmt)
 
     renderer.toneMappingExposure = THREE.MathUtils.lerp(0.35, 1.05, dayAmt)
 
     // Horizon-matched fog color (approximate)
-    const fogDay = new THREE.Color(0xb8d0dd)
-    const fogDusk = new THREE.Color(0x7f7a86)
-    const fogNight = new THREE.Color(0x0b1020)
+    const fogDay = new THREE.Color(0xc8d8e4)
+    const fogDusk = new THREE.Color(0x9a8070)
+    const fogNight = new THREE.Color(0x0c1220)
     const fogCol = fogNight.clone().lerp(fogDusk, duskAmt).lerp(fogDay, dayAmt)
     this.fog.color.copy(fogCol)
 
