@@ -84,6 +84,7 @@ export class Game {
       canvas,
       antialias: true,
       powerPreference: 'high-performance',
+      logarithmicDepthBuffer: true,
     })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.setSize(window.innerWidth, window.innerHeight, false)

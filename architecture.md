@@ -16,7 +16,7 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `Game.ts` | `Game` | Thin orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`, builds `GameContext`, delegates gameplay to active `GameState`. **Title screen** on load: cinematic camera orbit over spawn with live world behind at golden hour, player spawns facing nearest Walker. Gameplay starts on dismiss (unfreezes day/night). Manages environment updates, performance tiers, **ESC pause** (`paused` flag + `PauseMenu`; not a `MenuState` yet), post-FX. **`ExploringState` and `PilotingState` registered**; `menu` ID exists on `GameStateId` but has no state class wired. |
+| `Game.ts` | `Game` | Thin orchestrator. Owns renderer, scene, camera, clock. **WebGLRenderer** uses `logarithmicDepthBuffer` for stable depth on 1500m-scale world. Instantiates all systems in `seedScene()`, builds `GameContext`, delegates gameplay to active `GameState`. **Title screen** on load: cinematic camera orbit over spawn with live world behind at golden hour, player spawns facing nearest Walker. Gameplay starts on dismiss (unfreezes day/night). Manages environment updates, performance tiers, **ESC pause** (`paused` flag + `PauseMenu`; not a `MenuState` yet), post-FX. **`ExploringState` and `PilotingState` registered**; `menu` ID exists on `GameStateId` but has no state class wired. |
 | `Game.ts` | `.start()` | Begins the render loop |
 | `Game.ts` | `.stop()` | Cancels render loop, disposes input |
 | `Game.ts` | `.changeState(id)` | Exits current state, enters next state |
@@ -41,7 +41,7 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `Terrain.ts` | `Terrain` | Procedural heightfield (e.g. **1500×1500**, 350 segments in `Game.ts`). FBM + ridge noise, mega-mountain with spiral carved passes. Biome assignment per vertex. Smooth biome color blending via continuous weights (mountainMask × basinFalloff, forestMask, elevation) so boundaries gradient naturally. |
+| `Terrain.ts` | `Terrain` | Procedural heightfield (e.g. **1500×1500**, 350 segments in `Game.ts`). FBM + ridge noise, mega-mountain with spiral carved passes. Biome assignment per vertex. Smooth biome color blending via continuous weights (mountainMask × basinFalloff, forestMask, elevation) so boundaries gradient naturally. Main mesh tagged with `PostFX.tagBiome` (plains) for height-fog biome pass. |
 | `Terrain.ts` | `.heightAtXZ(x, z)` | Bilinear interpolated height lookup |
 | `Terrain.ts` | `.biomeAtXZ(x, z)` | Nearest-vertex biome lookup |
 | `Terrain.ts` | `.slopeAtXZ(x, z)` | Finite-difference slope magnitude |
@@ -65,7 +65,7 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `PostFX.ts` | `PostFX` | EffectComposer pipeline: BotW toon ramp (2-band + warm shadow), saturated biome palette, god rays, warm-to-cool fog veil, subtle film grain. Biome ID render pass. Quality-adaptive. `setBloomOverride(intensity | null)` for cinematic bloom spikes. |
+| `PostFX.ts` | `PostFX` | EffectComposer pipeline: BotW toon ramp (2-band + warm shadow), saturated biome palette, god rays, warm-to-cool fog veil, subtle film grain. Biome ID render pass. SSAO tuned softer for large terrain (avoid flat ground going black). Quality-adaptive. `setBloomOverride(intensity | null)` for cinematic bloom spikes. |
 | `PostFX.ts` | `PostFX.tagBiome(mesh, idx)` | Static helper to tag meshes for biome grading |
 | `RimLight.ts` | `applyRimLightToScene`, `applyRimLightToStandardMaterial` | Patches MeshStandardMaterial with wide warm golden rim (always-on, dusk-boosted). BotW-style character pop. |
 

@@ -57,7 +57,8 @@ function makeGrassMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
     transparent: true,
-    depthWrite: true,
+    depthWrite: false,
+    depthTest: true,
     uniforms: {
       uTime: { value: 0 },
       uWind: { value: new THREE.Vector2(1, 0) },

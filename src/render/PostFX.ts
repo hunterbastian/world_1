@@ -335,19 +335,20 @@ export class PostFX {
     this.composer.addPass(this.normalPass)
 
     // ── Pass 3: SSAO (HBAO-like ambient occlusion) ──
+    // Tuned for 1500m terrain: strong SSAO was crushing flat ground to near-black.
     this.ssao = new SSAOEffect(camera, this.normalPass.texture, {
       blendFunction: BlendFunction.MULTIPLY,
       samples: 9,
       rings: 7,
-      worldDistanceThreshold: 20,
-      worldDistanceFalloff: 5,
-      worldProximityThreshold: 0.4,
-      worldProximityFalloff: 0.15,
-      luminanceInfluence: 0.6,
-      radius: 0.1,
-      intensity: 1.5,
-      bias: 0.025,
-      fade: 0.02,
+      worldDistanceThreshold: 28,
+      worldDistanceFalloff: 8,
+      worldProximityThreshold: 0.35,
+      worldProximityFalloff: 0.12,
+      luminanceInfluence: 0.45,
+      radius: 0.085,
+      intensity: 0.85,
+      bias: 0.045,
+      fade: 0.04,
       resolutionScale: 0.5,
     })
     this.ssaoPass = new EffectPass(camera as THREE.Camera, this.ssao)
