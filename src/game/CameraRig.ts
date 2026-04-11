@@ -12,11 +12,16 @@ export type CameraRigParams = {
  * Pitch is camera-only. Bob, landing dip, FOV shifts, and slide roll
  * are layered on top for movement feel.
  */
+export type CameraMode = 'fp' | 'tp'
+
 export class CameraRig {
   private readonly camera: THREE.PerspectiveCamera
 
   private yaw: number
   private pitch: number
+
+  // Mode
+  private mode: CameraMode = 'fp'
 
   // Eye height (springs toward target)
   private eyeHeightTarget = 1.65
@@ -46,6 +51,12 @@ export class CameraRig {
   private shakeT = 0
   private shakeAmp = 0
 
+  // TP chase cam state
+  private tpDistance = 14
+  private tpHeight = 6
+  private tpPosSmooth = new THREE.Vector3()
+  private tpInitialized = false
+
   constructor(camera: THREE.PerspectiveCamera, params: CameraRigParams) {
     this.camera = camera
     this.yaw = params.yaw
@@ -53,6 +64,27 @@ export class CameraRig {
     this.fovBase = params.fov
     this.fovTarget = params.fov
     this.fovCurrent = params.fov
+  }
+
+  setMode(mode: CameraMode) {
+    this.mode = mode
+    if (mode === 'tp') {
+      this.tpInitialized = false
+      this.fovTarget = this.fovBase + 5
+      this.pitch = THREE.MathUtils.clamp(this.pitch, -0.6, 0.9)
+    } else {
+      this.fovTarget = this.fovBase
+    }
+  }
+
+  getMode(): CameraMode {
+    return this.mode
+  }
+
+  /** Configure TP offsets per Walker tier. */
+  setTPOffsets(distance: number, height: number) {
+    this.tpDistance = distance
+    this.tpHeight = height
   }
 
   getYaw() {
@@ -106,6 +138,46 @@ export class CameraRig {
   }
 
   update(dt: number, playerPos: THREE.Vector3) {
+    if (this.mode === 'tp') {
+      this.updateTP(dt, playerPos)
+      return
+    }
+    this.updateFP(dt, playerPos)
+  }
+
+  /** Third-person chase camera around a target position (Walker hull top). */
+  private updateTP(dt: number, followPos: THREE.Vector3) {
+    this.time += dt
+
+    // Pitch clamp for TP (don't let camera go underground or straight up)
+    this.pitch = THREE.MathUtils.clamp(this.pitch, -0.6, 0.9)
+
+    // FOV
+    this.fovCurrent += (this.fovTarget - this.fovCurrent) * (1 - Math.exp(-4 * dt))
+    if (Math.abs(this.fovCurrent - this.camera.fov) > 0.05) {
+      this.camera.fov = this.fovCurrent
+      this.camera.updateProjectionMatrix()
+    }
+
+    // Smooth follow target (spring toward followPos)
+    if (!this.tpInitialized) {
+      this.tpPosSmooth.copy(followPos)
+      this.tpInitialized = true
+    }
+    const followLerp = 1 - Math.exp(-6 * dt)
+    this.tpPosSmooth.lerp(followPos, followLerp)
+
+    // Camera orbits around smoothed target using yaw/pitch
+    const dist = this.tpDistance
+    const camX = this.tpPosSmooth.x - Math.sin(this.yaw) * Math.cos(this.pitch) * dist
+    const camY = this.tpPosSmooth.y + this.tpHeight + Math.sin(this.pitch) * dist * 0.5
+    const camZ = this.tpPosSmooth.z - Math.cos(this.yaw) * Math.cos(this.pitch) * dist
+
+    this.camera.position.set(camX, camY, camZ)
+    this.camera.lookAt(this.tpPosSmooth)
+  }
+
+  private updateFP(dt: number, playerPos: THREE.Vector3) {
     this.time += dt
 
     // --- Eye height spring (critically damped) ---

@@ -2,7 +2,11 @@ import * as THREE from 'three'
 
 const outlineMaterial = new THREE.ShaderMaterial({
   side: THREE.BackSide,
-  depthWrite: true,
+  depthWrite: false,
+  depthTest: true,
+  polygonOffset: true,
+  polygonOffsetFactor: 1,
+  polygonOffsetUnits: 1,
   uniforms: {
     uThickness: { value: 0.025 },
     uColor: { value: new THREE.Color(0x0a0a12) },

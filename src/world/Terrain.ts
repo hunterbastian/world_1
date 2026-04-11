@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { Biome, type BiomeId, biomeIndex } from './Biomes'
 import { fbm2, makeNoise2D, ridge2 } from './noise'
 import { makeTerrainMaterial } from '../render/TerrainShader'
+import { PostFX } from '../render/PostFX'
 
 export type TerrainOptions = {
   size: number
@@ -118,6 +119,8 @@ export class Terrain {
 
     this.mesh = new THREE.Mesh(this.geometry, this.material)
     this.mesh.receiveShadow = true
+    // Biome ID pass expects userData; terrain is mostly grassland for fog grading.
+    PostFX.tagBiome(this.mesh, biomeIndex('grassy_plains'))
     this.object3d.add(this.mesh)
 
     const vertCount = (this.segments + 1) * (this.segments + 1)

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { GameState, GameContext } from './GameState'
 import type { InputState } from './Input'
+import { ActivationCinematic } from './ActivationCinematic'
 
 export class ExploringState implements GameState {
   readonly id = 'exploring' as const
@@ -9,14 +10,27 @@ export class ExploringState implements GameState {
   private rest = { active: false, hold: 0, t: 0 }
   private walkerActivation = { hold: 0, nearWalkerIdx: -1 }
   private devFly = false
+  private cinematic: ActivationCinematic | null = null
 
-  enter(_ctx: GameContext) {}
+  enter(ctx: GameContext) {
+    ctx.hud.setCrosshair(true, 'explore')
+  }
 
-  exit(_ctx: GameContext) {
+  exit(ctx: GameContext) {
     this.rest = { active: false, hold: 0, t: 0 }
+    ctx.hud.setCrosshair(false)
   }
 
   update(ctx: GameContext, dt: number, input: InputState) {
+    // Cinematic takes priority over all exploration
+    if (this.cinematic) {
+      this.cinematic.update(ctx, dt)
+      if (this.cinematic.done) {
+        this.cinematic = null
+      }
+      return
+    }
+
     const { player, cameraRig, poi, hud, journal, worldMap, walkers, camera } = ctx
 
     // Dev fly toggle
@@ -116,9 +130,38 @@ export class ExploringState implements GameState {
   private updateWalkerActivation(ctx: GameContext, dt: number, input: InputState) {
     const { player, walkers, hud } = ctx
     const activationRange = 8.0
-    const activationTime = 4.0 // seconds to hold E
+    const activationTime = 4.0
 
-    // Find nearest inactive walker
+    // Check for nearby already-activated Walker to re-mount (quick hold E)
+    let nearestActivated: typeof walkers.walkers[number] | null = null
+    let nearestActivatedDist = Infinity
+    for (const w of walkers.walkers) {
+      if (!w.activated || w.mounted) continue
+      const d = w.object3d.position.distanceTo(player.position)
+      if (d < activationRange && d < nearestActivatedDist) {
+        nearestActivatedDist = d
+        nearestActivated = w
+      }
+    }
+
+    if (nearestActivated) {
+      hud.setPrompt('Hold E — Mount')
+      if (input.interactHeld) {
+        this.walkerActivation.hold = Math.min(1, this.walkerActivation.hold + dt * 2)
+        if (this.walkerActivation.hold >= 1) {
+          this.walkerActivation.hold = 0
+          hud.setPrompt(null)
+          ctx.activeWalker = nearestActivated
+          ctx.requestStateChange('piloting')
+          return
+        }
+      } else {
+        this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 3)
+      }
+      return
+    }
+
+    // Find nearest inactive (dormant) walker
     let nearestIdx = -1
     let nearestDist = Infinity
     for (let i = 0; i < walkers.walkers.length; i++) {
@@ -132,7 +175,6 @@ export class ExploringState implements GameState {
     }
 
     if (nearestIdx >= 0) {
-      // Near an inactive walker
       if (this.walkerActivation.nearWalkerIdx !== nearestIdx) {
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = nearestIdx
@@ -147,15 +189,21 @@ export class ExploringState implements GameState {
       hud.setActivationRing(this.walkerActivation.hold)
 
       if (this.walkerActivation.hold >= 1) {
-        // Activate!
         const walker = walkers.walkers[nearestIdx]
         walker.activate()
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = -1
         hud.setActivationRing(null)
+        hud.setPrompt(null)
+
+        // Start cinematic -- hand off to PilotingState when done
+        this.cinematic = new ActivationCinematic(walker, ctx, () => {
+          ctx.activeWalker = walker
+          ctx.requestStateChange('piloting')
+        })
+        return
       }
     } else {
-      // Not near any walker
       if (this.walkerActivation.hold > 0) {
         this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 1.2)
         hud.setActivationRing(this.walkerActivation.hold > 0.01 ? this.walkerActivation.hold : null)

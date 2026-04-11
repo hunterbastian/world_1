@@ -22,8 +22,10 @@ import { Landmarks } from '../world/Landmarks'
 import { WalkerMechs } from '../world/WalkerMechs'
 import { GrassField } from '../world/GrassField'
 import { PauseMenu } from '../ui/PauseMenu'
+import { TitleScreen } from '../ui/TitleScreen'
 import type { GameState, GameStateId, GameContext } from './GameState'
 import { ExploringState } from './ExploringState'
+import { PilotingState } from './PilotingState'
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
@@ -70,11 +72,19 @@ export class Game {
   private activeState!: GameState
   private ctx!: GameContext
 
+  // Title screen
+  private titleScreen: TitleScreen | null = null
+  private titleActive = true
+  private titleTime = 0
+  private titleTransition = 0
+  private spawn = new THREE.Vector3()
+
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
       powerPreference: 'high-performance',
+      logarithmicDepthBuffer: true,
     })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.setSize(window.innerWidth, window.innerHeight, false)
@@ -106,19 +116,29 @@ export class Game {
       wind: this.wind,
       poi: this.poi,
       walkers: this.walkers,
+      activeWalker: null,
       journal: this.journal,
       hud: this.hud,
       worldMap: this.worldMap,
+      postfx: this.postfx,
+      audio: this.audio,
       requestStateChange: (id) => this.changeState(id),
     }
 
     this.states.set('exploring', new ExploringState())
+    this.states.set('piloting', new PilotingState())
     this.activeState = this.states.get('exploring')!
-    this.activeState.enter(this.ctx)
 
     this.input = new Input(this.renderer.domElement)
     window.addEventListener('keydown', this.onDebugKey)
     window.addEventListener('resize', this.onResize)
+
+    // Title screen: world renders behind it, gameplay starts on dismiss
+    this.titleScreen = new TitleScreen()
+    document.body.appendChild(this.titleScreen.root)
+    this.hud.root.style.opacity = '0'
+    this.hud.root.style.transition = 'opacity 0.8s ease'
+    this.titleScreen.onDismiss = () => this.dismissTitle()
   }
 
   start() {
@@ -133,6 +153,31 @@ export class Game {
     this.input.dispose()
     window.removeEventListener('keydown', this.onDebugKey)
     window.removeEventListener('resize', this.onResize)
+  }
+
+  private dismissTitle() {
+    if (!this.titleActive) return
+    this.titleActive = false
+    this.titleTransition = 0
+    this.titleScreen = null
+
+    // Show HUD
+    this.hud.root.style.opacity = '1'
+
+    // Unfreeze day/night cycle
+    this.sky.freezeTime = false
+
+    // Start gameplay state
+    this.activeState.enter(this.ctx)
+
+    // Start audio (requires user gesture -- the click that dismissed the title)
+    void this.audio.start()
+
+    // Request pointer lock
+    const result = this.renderer.domElement.requestPointerLock()
+    if (result && typeof (result as any).catch === 'function') {
+      ;(result as any).catch(() => {})
+    }
   }
 
   private changeState(id: GameStateId) {
@@ -158,13 +203,20 @@ export class Game {
       if (this.perfDebug) console.info(`[perf] tier=${this.qualityTier} ema=${perf.emaMs.toFixed(1)}ms`)
     }
 
-    // Environment (always updates regardless of state/pause)
+    // Environment (always updates regardless of state/pause/title)
     this.sky.update(dt, this.renderer)
-    this.sky.updateShadowFocus(this.player.position)
+    this.sky.updateShadowFocus(this.titleActive ? this.spawn : this.player.position)
     this.rim.sunDir.copy(this.sky.sunDirection)
     this.rim.intensity = THREE.MathUtils.clamp(0.15 + this.sky.duskAmount * 0.55, 0, 0.8)
     this.cloudDome.update(dt, this.sky)
     this.wind.update(dt)
+
+    const windDir = this.wind.dirXZ
+    this.water.update(dt, windDir)
+    this.vegetation.update(dt, windDir)
+    this.grass.update(dt, windDir, this.titleActive ? this.spawn : this.player.position)
+    this.campfires.update(dt, windDir)
+    this.walkers.update(dt)
 
     // Periodically refresh IBL to track day/night shifts
     this.iblTimer += dt
@@ -173,34 +225,39 @@ export class Game {
       this.buildIBL()
     }
 
-    const input = this.input.consume()
+    if (this.titleActive) {
+      // Title mode: cinematic camera drift, world alive, no gameplay
+      this.titleTime += dt
+      this.updateTitleCamera(dt)
 
-    // Pause toggle
-    if (input.escapePressed) {
-      this.paused = !this.paused
-      this.pauseMenu.setOpen(this.paused)
-      if (this.paused && document.pointerLockElement === this.renderer.domElement) {
-        document.exitPointerLock()
+      // Consume input but ignore it (prevents stale deltas on dismiss)
+      this.input.consume()
+    } else {
+      // Post-title camera transition (smooth blend from cinematic to FP)
+      if (this.titleTransition < 1) {
+        this.titleTransition = Math.min(1, this.titleTransition + dt * 0.8)
+      }
+
+      const input = this.input.consume()
+
+      // Pause toggle
+      if (input.escapePressed) {
+        this.paused = !this.paused
+        this.pauseMenu.setOpen(this.paused)
+        if (this.paused && document.pointerLockElement === this.renderer.domElement) {
+          document.exitPointerLock()
+        }
+      }
+
+      if (!this.paused) {
+        this.activeState.update(this.ctx, dt, input)
+
+        this.poi.update(this.player.position)
+        this.audio.update()
       }
     }
 
-    if (!this.paused) {
-      // Delegate gameplay to active state
-      this.activeState.update(this.ctx, dt, input)
-
-      // World system updates
-      const windDir = this.wind.dirXZ
-      this.water.update(dt, windDir)
-      this.vegetation.update(dt, windDir)
-      this.grass.update(dt, windDir, this.player.position)
-      this.poi.update(this.player.position)
-      this.campfires.update(dt, windDir)
-      this.walkers.update(dt)
-      this.audio.update()
-    }
-
     // Post-processing (always renders)
-    // Use the sky-far sun position for god rays / fog, not the shadow-following light
     const skySunPos = this.sky.sunDirection.clone().multiplyScalar(400)
     const sunUv = this.projectToScreenUv(skySunPos, this.camera)
     const godAmt = THREE.MathUtils.clamp(this.sky.duskAmount * 0.9 + (1 - this.sky.dayAmount) * 0.15, 0, 0.85)
@@ -209,6 +266,30 @@ export class Game {
     this.postfx.render(this.renderer, this.scene, this.camera)
 
     this.raf = requestAnimationFrame(this.tick)
+  }
+
+  private updateTitleCamera(_dt: number) {
+    const t = this.titleTime
+    const spawnY = this.terrain.heightAtXZ(this.spawn.x, this.spawn.z)
+
+    // Slow orbit: ~60s per revolution, high up, looking down at the world
+    const orbitRadius = 60
+    const orbitSpeed = 0.018
+    const orbitHeight = 45
+    const angle = t * orbitSpeed
+
+    const camX = this.spawn.x + Math.sin(angle) * orbitRadius
+    const camZ = this.spawn.z + Math.cos(angle) * orbitRadius
+    const camY = spawnY + orbitHeight + Math.sin(t * 0.08) * 4
+
+    this.camera.position.set(camX, camY, camZ)
+
+    // Look slightly ahead of the orbit center (not straight down)
+    const lookAhead = 0.15
+    const lookX = this.spawn.x + Math.sin(angle + lookAhead) * 15
+    const lookZ = this.spawn.z + Math.cos(angle + lookAhead) * 15
+    const lookY = spawnY + 3
+    this.camera.lookAt(lookX, lookY, lookZ)
   }
 
   private onResize = () => {
@@ -319,6 +400,7 @@ export class Game {
     }
 
     const spawn = this.terrain.findFlatSpawn(1337)
+    this.spawn.copy(spawn)
     this.player = new Player({
       terrain: this.terrain,
       start: spawn.clone(),
@@ -351,10 +433,23 @@ export class Game {
       { once: true }
     )
 
+    // Face the nearest Walker on spawn (first impression = the "wow")
+    let spawnYaw = 0
+    let bestWalkerDist = Infinity
+    for (const w of this.walkers.walkers) {
+      const d = w.object3d.position.distanceTo(spawn)
+      if (d < bestWalkerDist) {
+        bestWalkerDist = d
+        const dx = w.object3d.position.x - spawn.x
+        const dz = w.object3d.position.z - spawn.z
+        spawnYaw = Math.atan2(dx, dz)
+      }
+    }
+
     this.cameraRig = new CameraRig(this.camera, {
       fov: 65,
-      yaw: 0,
-      pitch: 0,
+      yaw: spawnYaw,
+      pitch: -0.05,
     })
     this.player.onStep(({ intensity }) => this.cameraRig.impulseFootstep(intensity))
     this.player.onLanding(({ intensity }) => this.cameraRig.impulseLanding(intensity))

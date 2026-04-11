@@ -57,7 +57,11 @@ function makeGrassMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
     transparent: true,
-    depthWrite: true,
+    depthWrite: false,
+    depthTest: true,
+    polygonOffset: true,
+    polygonOffsetFactor: -1.5,
+    polygonOffsetUnits: -1.5,
     uniforms: {
       uTime: { value: 0 },
       uWind: { value: new THREE.Vector2(1, 0) },
@@ -189,7 +193,8 @@ export class GrassField {
         const cy = terrain.heightAtXZ(cx, cz)
 
         const cs = scale * THREE.MathUtils.lerp(0.85, 1.15, rng())
-        tmp.position.set(cx, cy, cz)
+        // Slight lift + polygon offset avoids z-fight flicker with terrain at 1500m scale
+        tmp.position.set(cx, cy + 0.04, cz)
         tmp.rotation.set(
           (rng() - 0.5) * 0.15,
           rng() * Math.PI * 2,

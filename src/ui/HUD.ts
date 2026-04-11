@@ -101,43 +101,102 @@ export class HUD {
     this.compassArrow.textContent = '▲'
     this.root.appendChild(this.compassArrow)
 
-    // ── Crosshair (center, hidden) ──
+    // ── Crosshair: Destiny / Halo–style sci-fi reticle (SVG) ──
     this.crosshair = document.createElement('div')
+    this.crosshair.className = 'hud-reticle'
     Object.assign(this.crosshair.style, {
       position: 'absolute',
       top: '50%',
       left: '50%',
       transform: 'translate(-50%, -50%)',
-      width: '20px',
-      height: '20px',
+      width: '48px',
+      height: '48px',
       opacity: '0',
-      transition: 'opacity 100ms ease',
+      transition: 'opacity 120ms ease, transform 120ms ease',
       pointerEvents: 'none',
     })
 
-    const cc = 'rgba(255,255,255,0.25)'
-    const hLine = document.createElement('div')
-    Object.assign(hLine.style, {
-      position: 'absolute',
-      top: '50%',
-      left: '0',
-      width: '100%',
-      height: '1px',
-      background: `linear-gradient(90deg, ${cc} 0%, ${cc} 30%, transparent 30%, transparent 70%, ${cc} 70%, ${cc} 100%)`,
-    })
-    this.crosshair.appendChild(hLine)
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('width', '48')
+    svg.setAttribute('height', '48')
+    svg.setAttribute('viewBox', '0 0 48 48')
+    svg.style.display = 'block'
+    svg.style.filter = 'drop-shadow(0 0 4px rgba(74, 212, 232, 0.35))'
 
-    const vLine = document.createElement('div')
-    Object.assign(vLine.style, {
-      position: 'absolute',
-      left: '50%',
-      top: '0',
-      width: '1px',
-      height: '100%',
-      background: `linear-gradient(180deg, ${cc} 0%, ${cc} 30%, transparent 30%, transparent 70%, ${cc} 70%, ${cc} 100%)`,
-    })
-    this.crosshair.appendChild(vLine)
+    const cx = 24
+    const cy = 24
+    const rOuter = 14
+    const rTick = 11
+    const strokeMain = 'rgba(255,255,255,0.82)'
+    const strokeAccent = 'rgba(74, 212, 232, 0.92)'
+    const strokeDim = 'rgba(255,255,255,0.22)'
 
+    const arc = (a0: number, a1: number, rad: number, sw: number, col: string, dash?: string) => {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      const x0 = cx + Math.cos(a0) * rad
+      const y0 = cy + Math.sin(a0) * rad
+      const x1 = cx + Math.cos(a1) * rad
+      const y1 = cy + Math.sin(a1) * rad
+      const large = a1 - a0 > Math.PI ? 1 : 0
+      el.setAttribute('d', `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${rad} ${rad} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`)
+      el.setAttribute('fill', 'none')
+      el.setAttribute('stroke', col)
+      el.setAttribute('stroke-width', String(sw))
+      el.setAttribute('stroke-linecap', 'round')
+      if (dash) el.setAttribute('stroke-dasharray', dash)
+      return el
+    }
+
+    // Faint full ring (orientation)
+    svg.appendChild(arc(0, Math.PI * 2 - 0.001, rOuter + 2, 0.6, strokeDim))
+
+    // Four bracket arcs (Destiny-ish broken circle)
+    const gap = 0.42
+    const q = Math.PI / 2
+    for (let i = 0; i < 4; i++) {
+      const mid = i * q - Math.PI / 2
+      const a0 = mid - q / 2 + gap
+      const a1 = mid + q / 2 - gap
+      svg.appendChild(arc(a0, a1, rOuter, 1.35, i % 2 === 0 ? strokeMain : strokeAccent))
+    }
+
+    // Inner tick marks at cardinals
+    for (let i = 0; i < 4; i++) {
+      const a = i * q - Math.PI / 2
+      const x0 = cx + Math.cos(a) * (rTick - 2)
+      const y0 = cy + Math.sin(a) * (rTick - 2)
+      const x1 = cx + Math.cos(a) * (rTick + 2.5)
+      const y1 = cy + Math.sin(a) * (rTick + 2.5)
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+      line.setAttribute('x1', String(x0))
+      line.setAttribute('y1', String(y0))
+      line.setAttribute('x2', String(x1))
+      line.setAttribute('y2', String(y1))
+      line.setAttribute('stroke', strokeAccent)
+      line.setAttribute('stroke-width', '1.1')
+      line.setAttribute('stroke-linecap', 'round')
+      svg.appendChild(line)
+    }
+
+    // Center dot + soft ring
+    const dotRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    dotRing.setAttribute('cx', String(cx))
+    dotRing.setAttribute('cy', String(cy))
+    dotRing.setAttribute('r', '3.2')
+    dotRing.setAttribute('fill', 'none')
+    dotRing.setAttribute('stroke', strokeAccent)
+    dotRing.setAttribute('stroke-width', '0.9')
+    dotRing.setAttribute('opacity', '0.65')
+    svg.appendChild(dotRing)
+
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    dot.setAttribute('cx', String(cx))
+    dot.setAttribute('cy', String(cy))
+    dot.setAttribute('r', '1.35')
+    dot.setAttribute('fill', strokeMain)
+    svg.appendChild(dot)
+
+    this.crosshair.appendChild(svg)
     this.root.appendChild(this.crosshair)
 
     // ── Prompt (bottom-center) ──
@@ -193,8 +252,21 @@ export class HUD {
     this.compassArrow.style.transform = `translateX(-50%) rotate(${angleRad}rad)`
   }
 
-  setCrosshair(visible: boolean) {
-    this.crosshair.style.opacity = visible ? '1' : '0'
+  /** `mode`: pilot = full sci-fi reticle; explore = subtle center dot only; off = hidden */
+  setCrosshair(visible: boolean, mode: 'pilot' | 'explore' = 'pilot') {
+    if (!visible) {
+      this.crosshair.style.opacity = '0'
+      this.crosshair.style.transform = 'translate(-50%, -50%) scale(1)'
+      return
+    }
+    const svg = this.crosshair.querySelector('svg')
+    if (svg) {
+      svg.style.opacity = mode === 'explore' ? '0.45' : '1'
+      svg.style.transform = mode === 'explore' ? 'scale(0.42)' : 'scale(1)'
+    }
+    this.crosshair.style.opacity = '1'
+    this.crosshair.style.transform =
+      mode === 'explore' ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(1)'
   }
 
   setPrompt(text: string | null) {

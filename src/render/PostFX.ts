@@ -335,19 +335,20 @@ export class PostFX {
     this.composer.addPass(this.normalPass)
 
     // ── Pass 3: SSAO (HBAO-like ambient occlusion) ──
+    // Tuned for 1500m terrain: strong SSAO was crushing flat ground to near-black.
     this.ssao = new SSAOEffect(camera, this.normalPass.texture, {
       blendFunction: BlendFunction.MULTIPLY,
       samples: 9,
       rings: 7,
-      worldDistanceThreshold: 20,
-      worldDistanceFalloff: 5,
-      worldProximityThreshold: 0.4,
-      worldProximityFalloff: 0.15,
-      luminanceInfluence: 0.6,
-      radius: 0.1,
-      intensity: 1.5,
-      bias: 0.025,
-      fade: 0.02,
+      worldDistanceThreshold: 32,
+      worldDistanceFalloff: 10,
+      worldProximityThreshold: 0.32,
+      worldProximityFalloff: 0.1,
+      luminanceInfluence: 0.38,
+      radius: 0.075,
+      intensity: 0.48,
+      bias: 0.055,
+      fade: 0.06,
       resolutionScale: 0.5,
     })
     this.ssaoPass = new EffectPass(camera as THREE.Camera, this.ssao)
@@ -397,15 +398,25 @@ export class PostFX {
     )
   }
 
+  private baseBloomIntensity = 0.5
+  private bloomOverride: number | null = null
+
   setQuality(tier: QualityTier) {
     this.quality = tier
 
-    // SSAO — disable entirely on low, half-res on medium
     this.ssaoPass.enabled = tier !== 'low'
     this.normalPass.enabled = tier !== 'low'
 
-    // Bloom intensity
-    this.bloom.intensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.35 : 0.5
+    this.baseBloomIntensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.35 : 0.5
+    if (this.bloomOverride === null) {
+      this.bloom.intensity = this.baseBloomIntensity
+    }
+  }
+
+  /** Temporarily override bloom intensity (null to revert to quality-tier default). */
+  setBloomOverride(intensity: number | null) {
+    this.bloomOverride = intensity
+    this.bloom.intensity = intensity ?? this.baseBloomIntensity
   }
 
   resize(w: number, h: number) {
