@@ -460,6 +460,51 @@ body {
   50% { opacity: 0.65; }
 }
 
+/* ── HUD reticle (Destiny / Halo polish) ── */
+
+.hud-reticle-svg {
+  filter:
+    drop-shadow(0 0 1px rgba(0, 0, 0, 0.85))
+    drop-shadow(0 0 6px rgba(74, 212, 232, 0.28));
+}
+
+.hud-reticle[data-reticle-mode='pilot'] .hud-reticle-svg {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.hud-reticle[data-reticle-mode='explore'] .hud-reticle-svg {
+  transform: scale(0.52);
+  opacity: 0.72;
+}
+
+.hud-reticle[data-reticle-mode='explore'] .hud-reticle-pilot-only {
+  opacity: 0;
+}
+
+.hud-reticle[data-reticle-mode='explore'] .hud-reticle-tick-diag {
+  opacity: 0;
+}
+
+@keyframes hudReticleOrbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.hud-reticle[data-reticle-mode='pilot'] .hud-reticle-orbit-spin {
+  animation: hudReticleOrbit 22s linear infinite;
+  transform-origin: 0 0;
+}
+
+@keyframes hudReticleGlowPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.hud-reticle[data-reticle-mode='pilot'] .hud-reticle-glow {
+  animation: hudReticleGlowPulse 2.8s ease-in-out infinite;
+}
+
 @media (max-width: 560px) {
   .pause-menu-shell {
     grid-template-columns: 1fr;
