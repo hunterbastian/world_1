@@ -24,6 +24,7 @@ import { GrassField } from '../world/GrassField'
 import { PauseMenu } from '../ui/PauseMenu'
 import type { GameState, GameStateId, GameContext } from './GameState'
 import { ExploringState } from './ExploringState'
+import { PilotingState } from './PilotingState'
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
@@ -106,6 +107,7 @@ export class Game {
       wind: this.wind,
       poi: this.poi,
       walkers: this.walkers,
+      activeWalker: null,
       journal: this.journal,
       hud: this.hud,
       worldMap: this.worldMap,
@@ -113,6 +115,7 @@ export class Game {
     }
 
     this.states.set('exploring', new ExploringState())
+    this.states.set('piloting', new PilotingState())
     this.activeState = this.states.get('exploring')!
     this.activeState.enter(this.ctx)
 

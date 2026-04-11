@@ -116,9 +116,38 @@ export class ExploringState implements GameState {
   private updateWalkerActivation(ctx: GameContext, dt: number, input: InputState) {
     const { player, walkers, hud } = ctx
     const activationRange = 8.0
-    const activationTime = 4.0 // seconds to hold E
+    const activationTime = 4.0
 
-    // Find nearest inactive walker
+    // Check for nearby already-activated Walker to re-mount (quick hold E)
+    let nearestActivated: typeof walkers.walkers[number] | null = null
+    let nearestActivatedDist = Infinity
+    for (const w of walkers.walkers) {
+      if (!w.activated || w.mounted) continue
+      const d = w.object3d.position.distanceTo(player.position)
+      if (d < activationRange && d < nearestActivatedDist) {
+        nearestActivatedDist = d
+        nearestActivated = w
+      }
+    }
+
+    if (nearestActivated) {
+      hud.setPrompt('Hold E — Mount')
+      if (input.interactHeld) {
+        this.walkerActivation.hold = Math.min(1, this.walkerActivation.hold + dt * 2)
+        if (this.walkerActivation.hold >= 1) {
+          this.walkerActivation.hold = 0
+          hud.setPrompt(null)
+          ctx.activeWalker = nearestActivated
+          ctx.requestStateChange('piloting')
+          return
+        }
+      } else {
+        this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 3)
+      }
+      return
+    }
+
+    // Find nearest inactive (dormant) walker
     let nearestIdx = -1
     let nearestDist = Infinity
     for (let i = 0; i < walkers.walkers.length; i++) {
@@ -132,7 +161,6 @@ export class ExploringState implements GameState {
     }
 
     if (nearestIdx >= 0) {
-      // Near an inactive walker
       if (this.walkerActivation.nearWalkerIdx !== nearestIdx) {
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = nearestIdx
@@ -147,15 +175,17 @@ export class ExploringState implements GameState {
       hud.setActivationRing(this.walkerActivation.hold)
 
       if (this.walkerActivation.hold >= 1) {
-        // Activate!
         const walker = walkers.walkers[nearestIdx]
         walker.activate()
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = -1
         hud.setActivationRing(null)
+
+        ctx.activeWalker = walker
+        ctx.requestStateChange('piloting')
+        return
       }
     } else {
-      // Not near any walker
       if (this.walkerActivation.hold > 0) {
         this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 1.2)
         hud.setActivationRing(this.walkerActivation.hold > 0.01 ? this.walkerActivation.hold : null)
