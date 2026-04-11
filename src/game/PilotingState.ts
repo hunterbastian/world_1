@@ -52,6 +52,8 @@ export class PilotingState implements GameState {
 
     this.mountPromptTimer = 2.0
     ctx.hud.setPrompt(`${this.walker.name.toUpperCase()}`)
+    ctx.hud.setPilotingMode(true, this.walker.name)
+    ctx.journal.setWalkerInfo({ name: this.walker.name, tier: this.walker.tier, mounted: true })
 
     this.stompUnsub = this.walker.onStomp((e: WalkerStompEvent) => {
       this.chaseCam?.impulseShake(e.intensity)
@@ -78,6 +80,7 @@ export class PilotingState implements GameState {
     ctx.camera.updateProjectionMatrix()
 
     ctx.hud.setPrompt(null)
+    ctx.hud.setPilotingMode(false)
 
     if (this.stompUnsub) {
       this.stompUnsub()
@@ -152,9 +155,11 @@ export class PilotingState implements GameState {
         this.mountPromptTimer -= dt
         if (this.mountPromptTimer <= 0) {
           ctx.hud.setPrompt(null)
+    ctx.hud.setPilotingMode(false)
         }
       } else if (this.dismountHold < 0.01) {
         ctx.hud.setPrompt(null)
+    ctx.hud.setPilotingMode(false)
       }
     }
 

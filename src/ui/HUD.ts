@@ -246,6 +246,41 @@ export class HUD {
     this.prompt.style.opacity = '1'
   }
 
+  private walkerLabel: HTMLDivElement | null = null
+
+  setPilotingMode(active: boolean, walkerName?: string) {
+    // Hide/show stamina arc
+    const staEl = this.staminaFill as unknown as SVGPathElement
+    const staParent = staEl?.closest("div")
+    if (staParent) (staParent as HTMLElement).style.opacity = active ? "0.2" : "1"
+
+    // Walker name label (top-right)
+    if (active && walkerName) {
+      if (!this.walkerLabel) {
+        this.walkerLabel = this.makeDiv({
+          position: "absolute",
+          top: "20px",
+          right: "24px",
+          font: `600 12px/1 ${this.font}`,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color: "rgba(74, 212, 232, 0.7)",
+          userSelect: "none",
+          transition: "opacity 200ms ease",
+        })
+        this.root.appendChild(this.walkerLabel)
+      }
+      this.walkerLabel.textContent = walkerName
+      this.walkerLabel.style.opacity = "1"
+    } else if (this.walkerLabel) {
+      this.walkerLabel.style.opacity = "0"
+    }
+
+    // Show MECH bar when piloting
+    if (active) this.setWalkerHealth(1.0)
+    else this.setWalkerHealth(null)
+  }
+
   // ── Activation ring ──
 
   private activationRing: HTMLDivElement | null = null
@@ -595,3 +630,4 @@ export class HUD {
     return { container, fillPath, glowPath: glowPath || fillPath }
   }
 }
+

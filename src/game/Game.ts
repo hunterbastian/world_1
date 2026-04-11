@@ -25,6 +25,7 @@ import { PauseMenu } from '../ui/PauseMenu'
 import type { GameState, GameStateId, GameContext } from './GameState'
 import { ExploringState } from './ExploringState'
 import { PilotingState } from './PilotingState'
+import { UISounds } from '../ui/UISounds'
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
@@ -187,6 +188,21 @@ export class Game {
     if (input.escapePressed) {
       this.paused = !this.paused
       this.pauseMenu.setOpen(this.paused)
+      if (this.paused) {
+        this.pauseMenu.setCharacterStats({
+          level: 1, health: 100, maxHealth: 100,
+          stamina: Math.round(this.player.stamina * 100), maxStamina: 100, speed: 1.0,
+        })
+        const aw = this.ctx.activeWalker
+        if (aw) {
+          this.pauseMenu.setWalkerStats({
+            name: aw.name, tier: aw.tier,
+            health: 100, maxHealth: 100,
+            armor: aw.tier === "assault" ? 80 : 40,
+            turretDamage: aw.tier === "assault" ? 25 : 15,
+          })
+        }
+      }
       if (this.paused && document.pointerLockElement === this.renderer.domElement) {
         document.exitPointerLock()
       }
@@ -327,6 +343,9 @@ export class Game {
     this.pauseMenu.onQuit = () => {
       window.location.reload()
     }
+    this.pauseMenu.onRestart = () => {
+      window.location.reload()
+    }
 
     const spawn = this.terrain.findFlatSpawn(1337)
     this.player = new Player({
@@ -351,6 +370,10 @@ export class Game {
 
     this.audio = new AudioSystem({ camera: this.camera, terrain: this.terrain, player: this.player })
     this.audio.registerWalkers(this.walkers.walkers)
+
+    const uiSounds = new UISounds(this.audio.listener)
+    this.pauseMenu.setUISounds(uiSounds)
+    this.journal.setUISounds(uiSounds)
     document.addEventListener(
       'pointerlockchange',
       () => {

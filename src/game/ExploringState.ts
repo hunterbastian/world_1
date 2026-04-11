@@ -37,6 +37,8 @@ export class ExploringState implements GameState {
       cameraRig.setEyeHeight(player.standingEyeHeight)
       cameraRig.update(dt, player.position)
       if (!still) {
+        const w = this.cinematic['walker']
+        if (w) ctx.journal.setWalkerInfo({ name: w.name, tier: w.tier, mounted: false })
         ctx.hud.setPrompt(null)
       }
       return
