@@ -25,7 +25,7 @@ export class PilotingState implements GameState {
 
     // HUD
     ctx.hud.setWalkerHealth(1.0)
-    ctx.hud.setCrosshair(true)
+    ctx.hud.setCrosshair(true, 'pilot')
     ctx.hud.setPrompt(null)
 
     this.dismountHold = 0

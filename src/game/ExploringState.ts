@@ -12,10 +12,13 @@ export class ExploringState implements GameState {
   private devFly = false
   private cinematic: ActivationCinematic | null = null
 
-  enter(_ctx: GameContext) {}
+  enter(ctx: GameContext) {
+    ctx.hud.setCrosshair(true, 'explore')
+  }
 
-  exit(_ctx: GameContext) {
+  exit(ctx: GameContext) {
     this.rest = { active: false, hold: 0, t: 0 }
+    ctx.hud.setCrosshair(false)
   }
 
   update(ctx: GameContext, dt: number, input: InputState) {

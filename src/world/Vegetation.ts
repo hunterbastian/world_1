@@ -90,7 +90,7 @@ export class Vegetation {
       if (idx >= (mesh.count ?? 0)) continue
 
       const s = isPine ? THREE.MathUtils.lerp(1.2, 2.2, rng()) : THREE.MathUtils.lerp(0.9, 1.8, rng())
-      tmp.position.set(x, y, z)
+      tmp.position.set(x, y + 0.06, z)
       tmp.rotation.set(0, rng() * Math.PI * 2, 0)
       tmp.scale.setScalar(s)
       tmp.updateMatrix()
