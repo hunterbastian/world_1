@@ -11,6 +11,8 @@ import type { WalkerMech } from '../world/WalkerMech'
 import type { JournalUI } from '../ui/Journal'
 import type { HUD } from '../ui/HUD'
 import type { WorldMap } from '../ui/WorldMap'
+import type { PostFX } from '../render/PostFX'
+import type { AudioSystem } from '../audio/AudioSystem'
 
 export type GameStateId = 'exploring' | 'piloting' | 'menu'
 
@@ -29,6 +31,8 @@ export interface GameContext {
   journal: JournalUI
   hud: HUD
   worldMap: WorldMap
+  postfx: PostFX
+  audio: AudioSystem
   requestStateChange: (id: GameStateId) => void
 }
 

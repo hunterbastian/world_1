@@ -16,13 +16,14 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `Game.ts` | `Game` | Thin orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`, builds `GameContext`, delegates gameplay to active `GameState`. **Title screen** on load: cinematic camera orbit over spawn with live world behind, gameplay starts on dismiss. Manages environment updates, performance tiers, **ESC pause** (`paused` flag + `PauseMenu`; not a `MenuState` yet), post-FX. **`ExploringState` and `PilotingState` registered**; `menu` ID exists on `GameStateId` but has no state class wired. |
+| `Game.ts` | `Game` | Thin orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`, builds `GameContext`, delegates gameplay to active `GameState`. **Title screen** on load: cinematic camera orbit over spawn with live world behind at golden hour, player spawns facing nearest Walker. Gameplay starts on dismiss (unfreezes day/night). Manages environment updates, performance tiers, **ESC pause** (`paused` flag + `PauseMenu`; not a `MenuState` yet), post-FX. **`ExploringState` and `PilotingState` registered**; `menu` ID exists on `GameStateId` but has no state class wired. |
 | `Game.ts` | `.start()` | Begins the render loop |
 | `Game.ts` | `.stop()` | Cancels render loop, disposes input |
 | `Game.ts` | `.changeState(id)` | Exits current state, enters next state |
 | `Game.ts` | `.seedScene()` | Instantiates terrain, water, vegetation, sky, clouds, wind, player, camera rig, POIs, campfires, landmarks, dormant Walkers, journal, HUD, world map, pause menu, audio, post-fx |
-| `GameState.ts` | `GameState`, `GameStateId`, `GameContext` | State machine interface. States: `exploring`, `piloting`, `menu`. `GameContext` provides shared references (player, camera, terrain, HUD, etc.) that states can access. Includes `activeWalker: WalkerMech | null` for the currently mounted Walker. |
-| `ExploringState.ts` | `ExploringState` | On-foot **first-person** exploration. FP camera yaw/pitch via `CameraRig`, player movement, compass to nearest POI, journal toggle, world map markers, rest at camps (hold E), **Walker activation** (hold E near dormant Walker → HUD ring → `WalkerMech.activate()` → mount → `PilotingState`). Re-mount activated Walkers with hold E. Optional dev fly toggle. |
+| `GameState.ts` | `GameState`, `GameStateId`, `GameContext` | State machine interface. States: `exploring`, `piloting`, `menu`. `GameContext` provides shared references (player, camera, terrain, HUD, `postfx`, `audio`, etc.) that states can access. Includes `activeWalker: WalkerMech | null` for the currently mounted Walker. |
+| `ExploringState.ts` | `ExploringState` | On-foot **first-person** exploration. FP camera yaw/pitch via `CameraRig`, player movement, compass to nearest POI, journal toggle, world map markers, rest at camps (hold E), **Walker activation** (hold E near dormant Walker → HUD ring → `WalkerMech.activate()` → **cinematic sequence** → `PilotingState`). Re-mount activated Walkers with hold E. Optional dev fly toggle. |
+| `ActivationCinematic.ts` | `ActivationCinematic` | 6-second cinematic when a dormant Walker activates. Camera locks to dramatic orbit around the Walker, bloom spikes (3.5× → fade), screen shake builds and settles, Walker rises from sunken pose (cubic ease-out), 40 dust particles burst outward, camera pulls back to wide shot. Calls `onComplete` to hand off to `PilotingState`. |
 | `PilotingState.ts` | `PilotingState` | **Third-person** Walker piloting. WASD drives Walker movement (heading-based steering, heavy inertia). TP chase camera orbits Walker hull. Compass to nearest POI. Hold E to dismount back to `ExploringState`. Shows Walker health bar + crosshair. |
 | `Player.ts` | `Player` | First-person player controller. WASD, sprint/stamina, jump, crouch, slide, air control; Destiny-tuned speeds. **No visible mesh** (empty `Object3D` for position). Step/landing events for audio/camera. |
 | `Player.ts` | `.update(dt, input, cameraYaw)` | Per-frame movement: accel/decel, terrain clamping, slope rejection, facing, step phase, calls animateKnight |
@@ -50,7 +51,7 @@ One-liner per file and exported function/class.
 | `Water.ts` | `Water` | Ocean plane + river ribbons. Custom shader materials with wind-driven animation. Downhill path generation for rivers, carves terrain channels. |
 | `Vegetation.ts` | `Vegetation` | Instanced deciduous + pine trees scattered by biome density. Wind sway shader. Quality-tier instance count scaling. |
 | `GrassField.ts` | `GrassField` | Dense instanced grass blades (22k). Wind sway + player push-away. BotW-saturated green-to-yellow tips. Quality-tier scaling. |
-| `SkySystem.ts` | `SkySystem` | Day/night cycle (~10min). Three.js Sky object, directional sun light, fog color/density, dusk detection. |
+| `SkySystem.ts` | `SkySystem` | Day/night cycle (~10min). Three.js Sky object, directional sun light, fog color/density, dusk detection. Starts at golden hour (`timeOfDay=0.72`) with `freezeTime=true`; unfreezes on title dismiss. |
 | `CloudDome.ts` | `CloudDome` | Backface sphere with FBM cloud shader. Day/dusk/night coloring, quality-adaptive detail. |
 | `WindSystem.ts` | `WindSystem` | Slowly meandering wind direction + speed. Drives vegetation sway, water ripple, cape flutter, campfire embers. |
 | `PointsOfInterest.ts` | `PointsOfInterest`, `POI` | Spawns ruin/shrine/camp POIs with discovery orbs. Proximity-based discovery triggers journal entries. |
@@ -64,7 +65,7 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `PostFX.ts` | `PostFX` | EffectComposer pipeline: BotW toon ramp (2-band + warm shadow), saturated biome palette, god rays, warm-to-cool fog veil, subtle film grain. Biome ID render pass. Quality-adaptive. |
+| `PostFX.ts` | `PostFX` | EffectComposer pipeline: BotW toon ramp (2-band + warm shadow), saturated biome palette, god rays, warm-to-cool fog veil, subtle film grain. Biome ID render pass. Quality-adaptive. `setBloomOverride(intensity | null)` for cinematic bloom spikes. |
 | `PostFX.ts` | `PostFX.tagBiome(mesh, idx)` | Static helper to tag meshes for biome grading |
 | `RimLight.ts` | `applyRimLightToScene`, `applyRimLightToStandardMaterial` | Patches MeshStandardMaterial with wide warm golden rim (always-on, dusk-boosted). BotW-style character pop. |
 

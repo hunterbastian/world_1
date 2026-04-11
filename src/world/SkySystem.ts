@@ -9,7 +9,7 @@ export class SkySystem {
   public readonly sunLight: THREE.DirectionalLight
   public readonly sky: Sky
 
-  public timeOfDay = 0.5 // 0..1 (0.5 = noon)
+  public timeOfDay = 0.72 // 0..1 — start at golden hour (late afternoon)
   public readonly sunDirection = new THREE.Vector3(0, 1, 0)
   public dayAmount = 1
   public duskAmount = 0

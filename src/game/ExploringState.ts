@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { GameState, GameContext } from './GameState'
 import type { InputState } from './Input'
+import { ActivationCinematic } from './ActivationCinematic'
 
 export class ExploringState implements GameState {
   readonly id = 'exploring' as const
@@ -9,6 +10,7 @@ export class ExploringState implements GameState {
   private rest = { active: false, hold: 0, t: 0 }
   private walkerActivation = { hold: 0, nearWalkerIdx: -1 }
   private devFly = false
+  private cinematic: ActivationCinematic | null = null
 
   enter(_ctx: GameContext) {}
 
@@ -17,6 +19,15 @@ export class ExploringState implements GameState {
   }
 
   update(ctx: GameContext, dt: number, input: InputState) {
+    // Cinematic takes priority over all exploration
+    if (this.cinematic) {
+      this.cinematic.update(ctx, dt)
+      if (this.cinematic.done) {
+        this.cinematic = null
+      }
+      return
+    }
+
     const { player, cameraRig, poi, hud, journal, worldMap, walkers, camera } = ctx
 
     // Dev fly toggle
@@ -180,9 +191,13 @@ export class ExploringState implements GameState {
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = -1
         hud.setActivationRing(null)
+        hud.setPrompt(null)
 
-        ctx.activeWalker = walker
-        ctx.requestStateChange('piloting')
+        // Start cinematic -- hand off to PilotingState when done
+        this.cinematic = new ActivationCinematic(walker, ctx, () => {
+          ctx.activeWalker = walker
+          ctx.requestStateChange('piloting')
+        })
         return
       }
     } else {

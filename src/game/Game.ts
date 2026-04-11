@@ -119,6 +119,8 @@ export class Game {
       journal: this.journal,
       hud: this.hud,
       worldMap: this.worldMap,
+      postfx: this.postfx,
+      audio: this.audio,
       requestStateChange: (id) => this.changeState(id),
     }
 
@@ -160,6 +162,9 @@ export class Game {
 
     // Show HUD
     this.hud.root.style.opacity = '1'
+
+    // Unfreeze day/night cycle
+    this.sky.freezeTime = false
 
     // Start gameplay state
     this.activeState.enter(this.ctx)
@@ -427,10 +432,23 @@ export class Game {
       { once: true }
     )
 
+    // Face the nearest Walker on spawn (first impression = the "wow")
+    let spawnYaw = 0
+    let bestWalkerDist = Infinity
+    for (const w of this.walkers.walkers) {
+      const d = w.object3d.position.distanceTo(spawn)
+      if (d < bestWalkerDist) {
+        bestWalkerDist = d
+        const dx = w.object3d.position.x - spawn.x
+        const dz = w.object3d.position.z - spawn.z
+        spawnYaw = Math.atan2(dx, dz)
+      }
+    }
+
     this.cameraRig = new CameraRig(this.camera, {
       fov: 65,
-      yaw: 0,
-      pitch: 0,
+      yaw: spawnYaw,
+      pitch: -0.05,
     })
     this.player.onStep(({ intensity }) => this.cameraRig.impulseFootstep(intensity))
     this.player.onLanding(({ intensity }) => this.cameraRig.impulseLanding(intensity))

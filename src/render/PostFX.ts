@@ -397,15 +397,25 @@ export class PostFX {
     )
   }
 
+  private baseBloomIntensity = 0.5
+  private bloomOverride: number | null = null
+
   setQuality(tier: QualityTier) {
     this.quality = tier
 
-    // SSAO — disable entirely on low, half-res on medium
     this.ssaoPass.enabled = tier !== 'low'
     this.normalPass.enabled = tier !== 'low'
 
-    // Bloom intensity
-    this.bloom.intensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.35 : 0.5
+    this.baseBloomIntensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.35 : 0.5
+    if (this.bloomOverride === null) {
+      this.bloom.intensity = this.baseBloomIntensity
+    }
+  }
+
+  /** Temporarily override bloom intensity (null to revert to quality-tier default). */
+  setBloomOverride(intensity: number | null) {
+    this.bloomOverride = intensity
+    this.bloom.intensity = intensity ?? this.baseBloomIntensity
   }
 
   resize(w: number, h: number) {
