@@ -375,6 +375,91 @@ body {
   background: rgba(232, 90, 106, 0.08);
 }
 
+/* ── Title screen ── */
+
+.title-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  opacity: 1;
+  transition: opacity 1.6s ease;
+}
+
+.title-screen--out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.title-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 50%, transparent 30%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+.title-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  animation: titleFadeIn 2.4s ease both;
+}
+
+@keyframes titleFadeIn {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.title-brand {
+  text-align: center;
+}
+
+.title-name {
+  font: 700 clamp(48px, 10vw, 96px)/0.92 var(--ui-font-display);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow:
+    0 0 80px rgba(74, 212, 232, 0.15),
+    0 0 160px rgba(74, 212, 232, 0.06),
+    0 2px 24px rgba(0, 0, 0, 0.4);
+  margin: 0;
+}
+
+.title-tagline {
+  font: 400 clamp(11px, 1.6vw, 15px)/1 var(--ui-font-display);
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 16px;
+  animation: titleFadeIn 2.8s ease both;
+  animation-delay: 0.6s;
+}
+
+.title-prompt {
+  font: 500 clamp(10px, 1.2vw, 12px)/1 var(--ui-font-display);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.40);
+  margin-top: 48px;
+  animation: titlePromptPulse 3s ease-in-out infinite, titleFadeIn 2s ease both;
+  animation-delay: 1.8s, 1.8s;
+  opacity: 0;
+}
+
+@keyframes titlePromptPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.65; }
+}
+
 @media (max-width: 560px) {
   .pause-menu-shell {
     grid-template-columns: 1fr;

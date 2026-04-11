@@ -16,7 +16,7 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `Game.ts` | `Game` | Thin orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`, builds `GameContext`, delegates gameplay to active `GameState`. Manages environment updates, performance tiers, **ESC pause** (`paused` flag + `PauseMenu`; not a `MenuState` yet), post-FX. **`ExploringState` and `PilotingState` registered**; `menu` ID exists on `GameStateId` but has no state class wired. |
+| `Game.ts` | `Game` | Thin orchestrator. Owns renderer, scene, camera, clock. Instantiates all systems in `seedScene()`, builds `GameContext`, delegates gameplay to active `GameState`. **Title screen** on load: cinematic camera orbit over spawn with live world behind, gameplay starts on dismiss. Manages environment updates, performance tiers, **ESC pause** (`paused` flag + `PauseMenu`; not a `MenuState` yet), post-FX. **`ExploringState` and `PilotingState` registered**; `menu` ID exists on `GameStateId` but has no state class wired. |
 | `Game.ts` | `.start()` | Begins the render loop |
 | `Game.ts` | `.stop()` | Cancels render loop, disposes input |
 | `Game.ts` | `.changeState(id)` | Exits current state, enters next state |
@@ -81,4 +81,5 @@ One-liner per file and exported function/class.
 | `HUD.ts` | `HUD` | Fixed overlay: health/stamina/XP bar stack (top-left), compass rose (top-center), crosshair (center, piloting only), Walker health bar (piloting only), interaction prompt (bottom-center). Halo/Destiny-style minimal HUD. |
 | `Journal.ts` | `JournalUI` | Tab-toggled overlay: Warcraft/Witcher 3 ornate panel. Two-column layout with parchment map slot (left) and scrollable lore entries with gold-accent cards (right). |
 | `WorldMap.ts` | `WorldMap`, `MapMarkerData` | 2D canvas parchment map. Layered rendering: base biome colors + water + contour lines, parchment fog-of-war with soft feathered edges, player arrow, POI markers (camp/ruin/shrine), Walker markers, compass rose, vignette border. |
+| `TitleScreen.ts` | `TitleScreen` | Full-screen title overlay: "GLASSWAKE" in Barlow Condensed, tagline, "Click to begin" prompt with pulse animation. Renders over the live world (cinematic camera drift, wind, sky). Dismisses on click/Space/Enter, fades out with CSS transition, fires `onDismiss` to start gameplay + audio. |
 | `PauseMenu.ts` | `PauseMenu`, `CharacterStats`, `WalkerStats`, `InventoryItem` | ESC-toggled pause overlay: Destiny/Halo–style angled shell (cyan accent rail, Barlow Condensed), left nav with Resume/Quit, right column with session header + scrollable character / Walker / inventory stats. |
