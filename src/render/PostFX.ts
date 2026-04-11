@@ -449,6 +449,10 @@ export class PostFX {
   private readonly dofPass: EffectPass
 
   private time = 0
+  private readonly _dayH = new THREE.Color(0.65, 0.72, 0.82)
+  private readonly _duskH = new THREE.Color(0.75, 0.58, 0.48)
+  private readonly _nightH = new THREE.Color(0.12, 0.14, 0.22)
+  private readonly _horizonTmp = new THREE.Color()
   private quality: QualityTier = 'high'
 
   // Eye adaptation state — subtle range, don't crush the image
@@ -512,6 +516,7 @@ export class PostFX {
       luminanceThreshold: 0.62,
       luminanceSmoothing: 0.12,
       mipmapBlur: true,
+      resolutionScale: 0.5,
       intensity: 0.35,
       radius: 0.85,
       levels: 5,
@@ -608,11 +613,11 @@ export class PostFX {
     this.toonRamp.setWarmth(THREE.MathUtils.lerp(0.2, 0.45, dayAmount) + duskAmount * 0.15)
 
     // Atmospheric perspective — horizon color shifts with time of day
-    const dayHorizon = new THREE.Color(0.65, 0.72, 0.82)
-    const duskHorizon = new THREE.Color(0.75, 0.58, 0.48)
-    const nightHorizon = new THREE.Color(0.12, 0.14, 0.22)
-    const horizonCol = nightHorizon.clone().lerp(dayHorizon, dayAmount)
-    horizonCol.lerp(duskHorizon, duskAmount * 0.6)
+
+
+
+    const horizonCol = this._horizonTmp.copy(this._nightH).lerp(this._dayH, dayAmount)
+    horizonCol.lerp(this._duskH, duskAmount * 0.6)
     this.atmoPerspective.setHorizonColor(horizonCol)
     const atmoBase = this.quality === 'high' ? 0.6 : this.quality === 'medium' ? 0.45 : 0.3
     this.atmoPerspective.setStrength(atmoBase)

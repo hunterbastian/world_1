@@ -74,10 +74,10 @@ export class Game {
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
+      antialias: false,
       powerPreference: 'high-performance',
     })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     this.renderer.setSize(window.innerWidth, window.innerHeight, false)
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -209,7 +209,7 @@ export class Game {
 
     // Post-processing (always renders)
     // Use the sky-far sun position for god rays / fog, not the shadow-following light
-    const skySunPos = this.sky.sunDirection.clone().multiplyScalar(400)
+    const skySunPos = this._tmpSunPos.copy(this.sky.sunDirection).multiplyScalar(400)
     const sunUv = this.projectToScreenUv(skySunPos, this.camera)
     const godAmt = THREE.MathUtils.clamp(this.sky.duskAmount * 0.9 + (1 - this.sky.dayAmount) * 0.15, 0, 0.85)
     const fogAmt = THREE.MathUtils.clamp(0.06 + (1 - this.sky.dayAmount) * 0.14 + this.sky.duskAmount * 0.04, 0, 0.28)
@@ -384,6 +384,7 @@ export class Game {
     this.buildIBL()
   }
 
+  private readonly _tmpSunPos = new THREE.Vector3()
   private iblTimer = 0
 
   private buildIBL() {

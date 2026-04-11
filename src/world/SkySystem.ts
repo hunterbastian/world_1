@@ -29,13 +29,13 @@ export class SkySystem {
     this.sunLight.position.set(100, 200, 50)
 
     this.sunLight.castShadow = true
-    this.sunLight.shadow.mapSize.set(2048, 2048)
+    this.sunLight.shadow.mapSize.set(1024, 1024)
     this.sunLight.shadow.camera.near = 1
-    this.sunLight.shadow.camera.far = 400
-    this.sunLight.shadow.camera.left = -80
-    this.sunLight.shadow.camera.right = 80
-    this.sunLight.shadow.camera.top = 80
-    this.sunLight.shadow.camera.bottom = -80
+    this.sunLight.shadow.camera.far = 200
+    this.sunLight.shadow.camera.left = -60
+    this.sunLight.shadow.camera.right = 60
+    this.sunLight.shadow.camera.top = 60
+    this.sunLight.shadow.camera.bottom = -60
     this.sunLight.shadow.bias = -0.0004
     this.sunLight.shadow.normalBias = 0.02
 

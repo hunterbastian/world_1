@@ -142,7 +142,7 @@ export class GrassField {
     this.mat = makeGrassMaterial()
 
     this.mesh = new THREE.InstancedMesh(bladeGeo, this.mat, this.capacity)
-    this.mesh.frustumCulled = false
+    this.mesh.frustumCulled = true
     this.object3d.add(this.mesh)
 
     const rng = makeRng(`${opts.seed}:grass`)

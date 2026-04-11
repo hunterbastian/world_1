@@ -51,7 +51,7 @@ export class Vegetation {
       colorB: new THREE.Color(0x8ad44a),
       colorC: new THREE.Color(0x3a8a2e),
       trunk: new THREE.Color(0x5a3d28),
-      count: 2800,
+      count: 2000,
     })
     const pineTrees = this.makeTreeInstanced({
       kind: 'pine',
@@ -59,7 +59,7 @@ export class Vegetation {
       colorB: new THREE.Color(0x4a9858),
       colorC: new THREE.Color(0x1c5030),
       trunk: new THREE.Color(0x4a3220),
-      count: 800,
+      count: 500,
     })
 
     this.object3d.add(forestTrees)
