@@ -1,3 +1,5 @@
+import type { UISounds } from './UISounds'
+
 export type CharacterStats = {
   level: number
   health: number
@@ -24,7 +26,10 @@ export type InventoryItem = {
 export class PauseMenu {
   public readonly root: HTMLDivElement
   public onResume: (() => void) | null = null
+  public onRestart: (() => void) | null = null
   public onQuit: (() => void) | null = null
+
+  private uiSounds: UISounds | null = null
 
   private readonly contentArea: HTMLDivElement
   private readonly charSection: HTMLDivElement
@@ -80,17 +85,38 @@ export class PauseMenu {
     resumeBtn.className = 'pause-menu-nav-btn pause-menu-nav-btn--primary'
     resumeBtn.textContent = 'Resume'
     resumeBtn.addEventListener('click', () => {
+      this.uiSounds?.menuSelect()
       this.setOpen(false)
       this.onResume?.()
     })
+    resumeBtn.addEventListener('mouseenter', () => {
+      this.uiSounds?.menuHover()
+    })
     nav.appendChild(resumeBtn)
+
+    const restartBtn = document.createElement('button')
+    restartBtn.type = 'button'
+    restartBtn.className = 'pause-menu-nav-btn'
+    restartBtn.textContent = 'Restart'
+    restartBtn.addEventListener('click', () => {
+      this.uiSounds?.menuSelect()
+      this.onRestart?.()
+    })
+    restartBtn.addEventListener('mouseenter', () => {
+      this.uiSounds?.menuHover()
+    })
+    nav.appendChild(restartBtn)
 
     const quitBtn = document.createElement('button')
     quitBtn.type = 'button'
     quitBtn.className = 'pause-menu-nav-btn pause-menu-nav-btn--danger'
     quitBtn.textContent = 'Quit'
     quitBtn.addEventListener('click', () => {
+      this.uiSounds?.menuSelect()
       this.onQuit?.()
+    })
+    quitBtn.addEventListener('mouseenter', () => {
+      this.uiSounds?.menuHover()
     })
     nav.appendChild(quitBtn)
 
@@ -147,10 +173,19 @@ export class PauseMenu {
 
   setOpen(open: boolean) {
     this.open = open
+    if (open) {
+      this.uiSounds?.menuOpen()
+    } else {
+      this.uiSounds?.menuClose()
+    }
     this.root.style.opacity = open ? '1' : '0'
     this.root.style.pointerEvents = open ? 'auto' : 'none'
     this.root.style.visibility = open ? 'visible' : 'hidden'
     if (open) this.renderSections()
+  }
+
+  setUISounds(sounds: UISounds) {
+    this.uiSounds = sounds
   }
 
   setCharacterStats(stats: CharacterStats) {

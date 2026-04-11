@@ -22,17 +22,20 @@ One-liner per file and exported function/class.
 | `Game.ts` | `.changeState(id)` | Exits current state, enters next state |
 | `Game.ts` | `.seedScene()` | Instantiates terrain, water, vegetation, sky, clouds, wind, player, camera rig, POIs, campfires, landmarks, dormant Walkers, journal, HUD, world map, pause menu, audio, post-fx |
 | `GameState.ts` | `GameState`, `GameStateId`, `GameContext` | State machine interface. States: `exploring`, `piloting`, `menu`. `GameContext` provides shared references (player, camera, terrain, HUD, etc.) that states can access. |
-| `ExploringState.ts` | `ExploringState` | On-foot **first-person** exploration. FP camera yaw/pitch via `CameraRig`, player movement, compass to nearest POI, journal toggle, world map markers, rest at camps (hold E), **Walker activation** (hold E near dormant Walker → HUD ring → `WalkerMech.activate()`). Optional dev fly toggle. |
+| `ExploringState.ts` | `ExploringState` | On-foot **first-person** exploration. FP camera yaw/pitch via `CameraRig`, player movement, HUD compass strip driven by `cameraRig.getYaw()`, journal toggle, world map markers, rest at camps (hold E), **Walker activation** (hold E near dormant Walker → HUD ring → `WalkerMech.activate()`), **Walker mounting** (hold E near activated Walker → `requestStateChange('piloting')`). Optional dev fly toggle. |
+| `PilotingState.ts` | `PilotingState` | **Walker piloting** state. Tank-style controls: W/S forward/back along walker facing, A/D rotate yaw. Tier-based speed/turn (scout 8 m/s, assault 6 m/s). Drives `animateWalker` walk cycle in-game. ChaseCam third-person orbit. Hold E 1.5s to dismount. Stomp shake forwarded to camera. |
+| `ChaseCam.ts` | `ChaseCam` | **Third-person chase camera** for Walker piloting. Free orbit around target (Halo vehicle camera — yaw independent of walker facing). Tier-based distance (scout 12, assault 18). Heavy cinematic lerp follow. 1.5s smooth mount transition from FP to chase position. Stomp shake. FOV 72. |
 | `Player.ts` | `Player` | First-person player controller. WASD, sprint/stamina, jump, crouch, slide, air control; Destiny-tuned speeds. **No visible mesh** (empty `Object3D` for position). Step/landing events for audio/camera. |
 | `Player.ts` | `.update(dt, input, cameraYaw)` | Per-frame movement: accel/decel, terrain clamping, slope rejection, facing, step phase, calls animateKnight |
 | `Player.ts` | `.setWind(dirXZ)` | Updates cape flutter wind direction |
 | `KnightModel.ts` | `buildKnightModel()` | Procedural Dark Souls knight: medieval steel/leather/chainmail palette, overlapping half-sphere pauldrons with ridges, segmented greaves, pointed knee cops, leather cross-straps and pouches, brown cowl, barrel helmet with horizontal ridges and visor slit. Hierarchical limb groups for animation. |
 | `KnightModel.ts` | `animateKnight(limbs, dt, speed, phase)` | Speed-blended procedural animation: idle sway, walk stride, run with weight. Legs/arms counter-swing, body bobs, head counters. |
 | `Input.ts` | `Input`, `InputState` | Keyboard + mouse input. WASD, Shift sprint, E interact, Tab journal, Escape pause, pointer lock orbit. `consume()` returns and resets deltas. |
-| `CameraRig.ts` | `CameraRig` | **First-person** rig: eye height spring, mouse yaw/pitch, walk/sprint bob, landing dip, sprint FOV, slide roll, footstep shake. |
-| `CameraRig.ts` | `.addOrbitDelta(dx, dy)` | Applies mouse look (yaw/pitch) |
-| `CameraRig.ts` | `.update(dt, targetPos)` | Updates camera position at player eye + effects |
-| `CameraRig.ts` | `.impulseFootstep(intensity)` | Triggers camera shake on player step |
+| `CameraRig.ts` | `CameraRig` | **Destiny / Helsby boxing-style FP rig.** Lowered aim point (~3.5° below center for peripheral vision), weighted sway bob (2.4 Hz walk, 2.8 Hz sprint, minimal amplitude), momentum lean (pitch into accel, roll into strafe), under-damped landing (overshoot → settle), idle breathing, sprint FOV, slide roll. Raw 1:1 mouse input — smoothness from animation weight, not filtering. |
+| `CameraRig.ts` | `.addOrbitDelta(dx, dy)` | Applies raw mouse look (yaw/pitch, no smoothing) |
+| `CameraRig.ts` | `.setMovementState(speed, max, sprint, slide, strafe)` | Feeds movement data for bob, lean, FOV, roll |
+| `CameraRig.ts` | `.update(dt, targetPos)` | Updates camera position at player eye + all effect layers |
+| `CameraRig.ts` | `.impulseFootstep(intensity)` | Subtle camera shake on player step |
 | `PerformanceManager.ts` | `PerformanceManager`, `QualityTier` | Adaptive quality tiers (high/medium/low) via EMA frame time with hysteresis and cooldown. |
 
 ## world/
@@ -47,7 +50,7 @@ One-liner per file and exported function/class.
 | `Terrain.ts` | `.carveRiverChannels(paths, width, depth)` | Carves geometry along a path for rivers/passes |
 | `Biomes.ts` | `BiomeId`, `Biome`, `biomeIndex`, `biomeFromIndex` | Biome enum (`grassy_plains`, `deep_forest`, `snowy_mountains`), color/density params, index helpers |
 | `Water.ts` | `Water` | Ocean plane + river ribbons. Custom shader materials with wind-driven animation. Downhill path generation for rivers, carves terrain channels. |
-| `Vegetation.ts` | `Vegetation` | Instanced deciduous + pine trees scattered by biome density. Wind sway shader. Quality-tier instance count scaling. |
+| `Vegetation.ts` | `Vegetation` | Instanced trees (deciduous: clustered icosahedron canopy; pine: layered cones) scattered by biome density. 3-color leaf palette, subsurface scattering, diffuse+hemisphere lighting, golden rim, height gradient, bark detail, leaf flutter + trunk sway. Casts and receives shadows. Quality-tier instance count scaling. |
 | `GrassField.ts` | `GrassField` | Dense instanced grass blades (22k). Wind sway + player push-away. BotW-saturated green-to-yellow tips. Quality-tier scaling. |
 | `SkySystem.ts` | `SkySystem` | Day/night cycle (~10min). Three.js Sky object, directional sun light, fog color/density, dusk detection. |
 | `CloudDome.ts` | `CloudDome` | Backface sphere with FBM cloud shader. Day/dusk/night coloring, quality-adaptive detail. |
@@ -55,15 +58,16 @@ One-liner per file and exported function/class.
 | `PointsOfInterest.ts` | `PointsOfInterest`, `POI` | Spawns ruin/shrine/camp POIs with discovery orbs. Proximity-based discovery triggers journal entries. |
 | `Campfires.ts` | `Campfires` | Campfire rings with point lights and additive ember particles (count scaled with world — see `Game.ts`). Wind-affected particle sim. |
 | `Landmarks.ts` | `Landmarks` | Places a ruined castle on the mega-mountain. Stone/iron geometry, slope-optimized placement. |
-| `WalkerMech.ts` | `WalkerTier`, `WalkerMech`, `WalkerLimbs`, `LegLimb`, `animateWalker` | Spider-tank quadruped Walker (Scout/Assault): ellipsoid dome hull, belly plate, armor collar, panel lines, bustle; sensor head (block, visor slit, sensor bumps) in rotatable Group; side-mounted weapon pylons; 4 legs as nested Group chains (hip ball → upper + panel + knee shroud → lower + panel + ankle → foot heel + 3 splayed toes). `animateWalker()` drives idle (hull bob, head nod, leg micro-settle, weapon float) and diagonal-trot walk (FL+RR / FR+RL pairs, knee lift, hull roll, head counter-motion). |
-| `WalkerMechs.ts` | `WalkerMechs` | Spawns dormant Walkers with seeded biome rules: Scouts in `grassy_plains` (one near player spawn), Assaults in forest/mountains biased near ruin POIs; `walkers` list for future interaction. |
+| `WalkerMech.ts` | `WalkerTier`, `WalkerMech`, `WalkerLimbs`, `LegLimb`, `animateWalker` | Spider-tank quadruped Walker (Scout/Assault). Vex-inspired materials (radiolaria glow, cyclops eye). `setDormant(bool)` controls crouched/standing pose + material emissive states. `animateWalker()` drives idle and diagonal-trot walk. |
+| `WalkerMechs.ts` | `WalkerMechs` | Spawns dormant Walkers with seeded biome rules. All start in dormant pose. |
+| `WalkerActivationCinematic.ts` | `WalkerActivationCinematic` | 6-second choreographed walker awakening: "The Hush" (world quiets) → "First Light" (radiolaria pulses) → "The Eye" (cyclops flickers on, sacred tone) → "Rising" (walker stands from dormant crouch). All audio procedural via Web Audio API. |
 | `noise.ts` | `makeNoise2D`, `fbm2`, `ridge2` | Deterministic simplex noise wrapper, FBM summation, ridge transform |
 
 ## render/
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `PostFX.ts` | `PostFX` | EffectComposer pipeline: BotW toon ramp (2-band + warm shadow), saturated biome palette, god rays, warm-to-cool fog veil, subtle film grain. Biome ID render pass. Quality-adaptive. |
+| `PostFX.ts` | `PostFX` | EffectComposer pipeline: **Destiny-style warm/cool color grade** (cool blue-violet shadows, warm golden highlights, time-of-day driven), saturated biome palette, god rays, warm-to-cool height fog veil, **atmospheric perspective** (depth-based desaturation + blue shift), **depth of field** (subtle gameplay bokeh, quality-adaptive), **eye adaptation** (auto-exposure driven by scene luminance), bloom, film grain, chromatic aberration, vignette. Biome ID render pass. Quality-adaptive. |
 | `PostFX.ts` | `PostFX.tagBiome(mesh, idx)` | Static helper to tag meshes for biome grading |
 | `RimLight.ts` | `applyRimLightToScene`, `applyRimLightToStandardMaterial` | Patches MeshStandardMaterial with wide warm golden rim (always-on, dusk-boosted). BotW-style character pop. |
 
@@ -77,7 +81,8 @@ One-liner per file and exported function/class.
 
 | File | Exports | Purpose |
 |------|---------|---------|
-| `HUD.ts` | `HUD` | Fixed overlay: health/stamina/XP bar stack (top-left), compass rose (top-center), crosshair (center, piloting only), Walker health bar (piloting only), interaction prompt (bottom-center). Halo/Destiny-style minimal HUD. |
-| `Journal.ts` | `JournalUI` | Tab-toggled overlay: Warcraft/Witcher 3 ornate panel. Two-column layout with parchment map slot (left) and scrollable lore entries with gold-accent cards (right). |
+| `HUD.ts` | `HUD` | Fixed overlay: curved vitals + straight XP/MECH bars (bottom-left), **Skyrim/Destiny-style compass strip** (top-center: 720px strip, N/E/S/W + intercardinals + 15° ticks, `setCompassAngle` scrolls by yaw), crosshair (center, piloting only), Walker health bar (piloting only), interaction prompt (bottom-center). Halo/Destiny-style minimal HUD. |
+| `Journal.ts` | `JournalUI`, `WalkerInfo` | Tab-toggled overlay; map column + lore list. `setWalkerInfo` shows bonded Walker stats card under map; `setUISounds` for open/close; Barlow/Rajdhani font stack. |
+| `WalkerHologram.ts` | `WalkerHologram` | Journal helper: clones `WalkerMech.object3d` into an offscreen scene, replaces meshes with cyan rim/scanline shader, renders to a small `WebGLRenderTarget`, flips to a 2D canvas for UI embedding; shares main `WebGLRenderer` context. |
 | `WorldMap.ts` | `WorldMap`, `MapMarkerData` | 2D canvas parchment map. Layered rendering: base biome colors + water + contour lines, parchment fog-of-war with soft feathered edges, player arrow, POI markers (camp/ruin/shrine), Walker markers, compass rose, vignette border. |
 | `PauseMenu.ts` | `PauseMenu`, `CharacterStats`, `WalkerStats`, `InventoryItem` | ESC-toggled pause overlay: Destiny/Halo–style angled shell (cyan accent rail, Barlow Condensed), left nav with Resume/Quit, right column with session header + scrollable character / Walker / inventory stats. |

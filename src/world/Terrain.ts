@@ -193,21 +193,21 @@ export class Terrain {
     let bestZ = 0
     let bestScore = -Infinity
 
-    const neighborDist = 15
-
     for (let pass = 0; pass < 2; pass++) {
       const strict = pass === 0
-      const attempts = strict ? 600 : 400
-      const maxSlope = strict ? 0.15 : 0.30
+      const attempts = strict ? 800 : 500
+      const maxSlope = strict ? 0.12 : 0.25
+      const maxHeight = strict ? 18 : 30
 
       for (let i = 0; i < attempts; i++) {
-        const r = Math.sqrt(rand()) * (half * (strict ? 0.40 : 0.55))
+        const r = Math.sqrt(rand()) * (half * (strict ? 0.35 : 0.50))
         const a = rand() * Math.PI * 2
         const x = Math.cos(a) * r
         const z = Math.sin(a) * r
 
         const y = this.heightAtXZ(x, z)
         if (y < this.seaLevel + 2.0) continue
+        if (y > maxHeight) continue
 
         const biome = this.biomeAtXZ(x, z)
         if (strict && biome !== 'grassy_plains') continue
@@ -216,23 +216,30 @@ export class Terrain {
         const slope = this.slopeAtXZ(x, z)
         if (slope > maxSlope) continue
 
+        // Two rings of neighbor checks: 15 and 30 units out
         let neighborOk = true
         let neighborSlopeSum = 0
-        for (let n = 0; n < 8; n++) {
-          const na = (n / 8) * Math.PI * 2
-          const nx = x + Math.cos(na) * neighborDist
-          const nz = z + Math.sin(na) * neighborDist
-          const nb = this.biomeAtXZ(nx, nz)
-          const ns = this.slopeAtXZ(nx, nz)
-          neighborSlopeSum += ns
-          if (nb === 'snowy_mountains' || ns > (strict ? 0.25 : 0.40)) {
-            neighborOk = false
-            break
+        for (const ring of [15, 30]) {
+          for (let n = 0; n < 8; n++) {
+            const na = (n / 8) * Math.PI * 2
+            const nx = x + Math.cos(na) * ring
+            const nz = z + Math.sin(na) * ring
+            const nb = this.biomeAtXZ(nx, nz)
+            const ns = this.slopeAtXZ(nx, nz)
+            neighborSlopeSum += ns
+            const slopeLimit = ring === 15
+              ? (strict ? 0.22 : 0.35)
+              : (strict ? 0.35 : 0.50)
+            if (nb === 'snowy_mountains' || ns > slopeLimit) {
+              neighborOk = false
+              break
+            }
           }
+          if (!neighborOk) break
         }
         if (!neighborOk) continue
 
-        const avgNeighborSlope = neighborSlopeSum / 8
+        const avgNeighborSlope = neighborSlopeSum / 16
         const flatScore = 1 / (0.05 + slope + avgNeighborSlope * 0.5)
         const elevScore = 1 - Math.abs(y - 5) / 20
         const biomeBonus = biome === 'grassy_plains' ? 1.5 : 0

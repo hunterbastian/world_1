@@ -9,29 +9,65 @@ import {
   BloomEffect,
   VignetteEffect,
   ChromaticAberrationEffect,
+  DepthOfFieldEffect,
   BlendFunction,
 } from 'postprocessing'
 import type { QualityTier } from '../game/PerformanceManager'
 
 /* ── Custom Effects ─────────────────────────────────────────── */
 
+/**
+ * Destiny-style warm/cool color grade.
+ *
+ * Shadows get a cool blue-violet push (Bungie's "mythic" ambient).
+ * Midtones stay true. Highlights get a warm golden push.
+ * A soft luminance ramp separates the bands — no hard toon edges,
+ * just a filmic warm/cool temperature split that reads as cinematic.
+ */
 class ToonRampEffect extends Effect {
   constructor() {
     super('ToonRampEffect', /* glsl */ `
+      uniform float uWarmth;
+      uniform float uCoolness;
+
       void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
         vec3 col = inputColor.rgb;
         float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
 
-        float toonBand = smoothstep(0.20, 0.52, lum);
-        vec3 warmShadow = col * vec3(0.88, 0.82, 0.92);
-        col = mix(warmShadow, col * 1.05, toonBand);
+        // Cool shadow push — blue tint in dark regions (Destiny mythic ambient)
+        float shadowMask = 1.0 - smoothstep(0.10, 0.40, lum);
+        vec3 coolShadow = vec3(0.82, 0.84, 0.98);
+        col = mix(col, col * coolShadow, shadowMask * uCoolness);
 
-        float spec = smoothstep(0.80, 0.94, lum);
-        col += spec * vec3(0.10, 0.08, 0.06);
+        // Warm highlight push — golden in bright regions
+        float highMask = smoothstep(0.48, 0.80, lum);
+        vec3 warmHighlight = vec3(1.06, 1.00, 0.88);
+        col *= mix(vec3(1.0), warmHighlight, highMask * uWarmth);
+
+        // Subtle midtone contrast lift
+        float midMask = smoothstep(0.15, 0.45, lum) * (1.0 - smoothstep(0.55, 0.85, lum));
+        col *= 1.0 + midMask * 0.04;
+
+        // Specular bloom seed — brightest pixels get a tiny warm kick
+        float spec = smoothstep(0.85, 0.98, lum);
+        col += spec * vec3(0.06, 0.04, 0.02);
 
         outputColor = vec4(col, 1.0);
       }
-    `)
+    `, {
+      uniforms: new Map([
+        ['uWarmth', new THREE.Uniform(0.65)],
+        ['uCoolness', new THREE.Uniform(0.55)],
+      ]),
+    })
+  }
+
+  setWarmth(v: number) {
+    ;(this.uniforms.get('uWarmth') as THREE.Uniform).value = v
+  }
+
+  setCoolness(v: number) {
+    ;(this.uniforms.get('uCoolness') as THREE.Uniform).value = v
   }
 }
 
@@ -127,7 +163,7 @@ class GodRaysEffect extends Effect {
         vec3 rays = vec3(0.0);
 
         vec2 coord = uv;
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 14; i++) {
           if (float(i) >= uSamples) break;
           coord += dir * 0.014;
           vec3 s = texture2D(inputBuffer, coord).rgb;
@@ -156,7 +192,7 @@ class GodRaysEffect extends Effect {
       uniforms: new Map<string, THREE.Uniform>([
         ['uSunUv', new THREE.Uniform(new THREE.Vector2(0.5, 0.5))],
         ['uIntensity', new THREE.Uniform(0.25)],
-        ['uSamples', new THREE.Uniform(20)],
+        ['uSamples', new THREE.Uniform(14)],
       ]),
     })
   }
@@ -170,7 +206,7 @@ class GodRaysEffect extends Effect {
   }
 
   setSamples(n: number) {
-    ;(this.uniforms.get('uSamples') as THREE.Uniform).value = Math.max(2, Math.min(20, Math.floor(n)))
+    ;(this.uniforms.get('uSamples') as THREE.Uniform).value = Math.max(2, Math.min(14, Math.floor(n)))
   }
 }
 
@@ -291,6 +327,100 @@ class HeightFogEffect extends Effect {
   }
 }
 
+/**
+ * Atmospheric perspective — the further something is, the more it
+ * desaturates and shifts toward a cool horizon color.
+ *
+ * Uses the depth buffer to determine distance. Replaces distant pixels
+ * with a blend toward a blue-grey horizon, simulating Rayleigh
+ * scattering. Gives the NMS / BotW / Destiny vast-horizon feel.
+ */
+/**
+ * Atmospheric perspective using screen-space luminance + position
+ * as a depth proxy. Avoids depth buffer issues while still giving
+ * the distance fade / desaturation / horizon shift look.
+ *
+ * Lower screen = closer (ground near feet). Higher screen near
+ * horizon band = further. Combined with luminance (distant things
+ * are foggier/brighter from scatter) this gives a convincing
+ * Rayleigh-like effect without a depth read.
+ */
+class AtmoPerspectiveEffect extends Effect {
+  constructor() {
+    super('AtmoPerspectiveEffect', /* glsl */ `
+      uniform float uStrength;
+      uniform float uDesaturation;
+      uniform vec3  uHorizonColor;
+
+      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+        vec3 col = inputColor.rgb;
+
+        // Screen-space distance proxy: horizon band (middle of screen) = far
+        // Ground at bottom = near, sky at top = sky (not terrain)
+        float horizonDist = smoothstep(0.35, 0.55, uv.y) * (1.0 - smoothstep(0.58, 0.80, uv.y));
+        float groundFade = smoothstep(0.55, 0.30, uv.y) * 0.3;
+        float t = (horizonDist + groundFade) * uStrength;
+        t = clamp(t, 0.0, 0.45);
+
+        // Desaturate distant pixels
+        float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+        vec3 desat = mix(col, vec3(lum), t * uDesaturation);
+
+        // Blend toward horizon color
+        vec3 result = mix(desat, uHorizonColor, t * 0.35);
+
+        outputColor = vec4(result, 1.0);
+      }
+    `, {
+      uniforms: new Map<string, THREE.Uniform>([
+        ['uStrength', new THREE.Uniform(0.6)],
+        ['uDesaturation', new THREE.Uniform(0.5)],
+        ['uHorizonColor', new THREE.Uniform(new THREE.Color(0.65, 0.72, 0.82))],
+      ]),
+    })
+  }
+
+  setStrength(v: number) {
+    ;(this.uniforms.get('uStrength') as THREE.Uniform).value = v
+  }
+
+  setDesaturation(v: number) {
+    ;(this.uniforms.get('uDesaturation') as THREE.Uniform).value = v
+  }
+
+  setHorizonColor(col: THREE.Color) {
+    ;(this.uniforms.get('uHorizonColor') as THREE.Uniform).value.copy(col)
+  }
+}
+
+/**
+ * Eye adaptation / auto-exposure.
+ *
+ * Samples the scene luminance and smoothly adjusts exposure over time.
+ * Walking from bright exterior into a dark area → exposure ramps up.
+ * Looking at the sun → exposure dips. Simulates human eye / camera
+ * iris adaptation. Destiny and Halo both use this.
+ */
+class EyeAdaptationEffect extends Effect {
+  constructor() {
+    super('EyeAdaptationEffect', /* glsl */ `
+      uniform float uExposure;
+
+      void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+        outputColor = vec4(inputColor.rgb * uExposure, 1.0);
+      }
+    `, {
+      uniforms: new Map([
+        ['uExposure', new THREE.Uniform(1.0)],
+      ]),
+    })
+  }
+
+  setExposure(v: number) {
+    ;(this.uniforms.get('uExposure') as THREE.Uniform).value = v
+  }
+}
+
 /* ── PostFX Pipeline ────────────────────────────────────────── */
 
 export class PostFX {
@@ -305,6 +435,7 @@ export class PostFX {
   private readonly heightFog: HeightFogEffect
   private readonly grainEffect: FilmGrainEffect
   private readonly godRays: GodRaysEffect
+  private readonly atmoPerspective: AtmoPerspectiveEffect
 
   // Library effects
   private readonly normalPass: NormalPass
@@ -312,10 +443,24 @@ export class PostFX {
   private readonly bloom: BloomEffect
   private readonly vignette: VignetteEffect
   private readonly chromatic: ChromaticAberrationEffect
+  private readonly dof: DepthOfFieldEffect
+  private readonly eyeAdapt: EyeAdaptationEffect
   private readonly ssaoPass: EffectPass
+  private readonly dofPass: EffectPass
 
   private time = 0
+  private readonly _dayH = new THREE.Color(0.65, 0.72, 0.82)
+  private readonly _duskH = new THREE.Color(0.75, 0.58, 0.48)
+  private readonly _nightH = new THREE.Color(0.12, 0.14, 0.22)
+  private readonly _horizonTmp = new THREE.Color()
   private quality: QualityTier = 'high'
+
+  // Eye adaptation state — subtle range, don't crush the image
+  private adaptedLuminance = 0.4
+  private readonly adaptSpeed = 1.2
+  private readonly minExposure = 0.9
+  private readonly maxExposure = 1.15
+  private readonly targetLumKey = 0.4
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
     this.composer = new EffectComposer(renderer)
@@ -324,9 +469,11 @@ export class PostFX {
     this.composer.addPass(new RenderPass(scene, camera))
 
     // Biome ID render target (rendered manually before composer)
-    this.biomeTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
-      depthBuffer: true,
-    })
+    this.biomeTarget = new THREE.WebGLRenderTarget(
+      Math.floor(window.innerWidth / 4),
+      Math.floor(window.innerHeight / 4),
+      { depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter },
+    )
     this.biomeTarget.texture.name = 'BiomeIdTarget'
     this.biomeOverrideMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 })
 
@@ -337,8 +484,8 @@ export class PostFX {
     // ── Pass 3: SSAO (HBAO-like ambient occlusion) ──
     this.ssao = new SSAOEffect(camera, this.normalPass.texture, {
       blendFunction: BlendFunction.MULTIPLY,
-      samples: 9,
-      rings: 7,
+      samples: 7,
+      rings: 4,
       worldDistanceThreshold: 20,
       worldDistanceFalloff: 5,
       worldProximityThreshold: 0.4,
@@ -348,7 +495,7 @@ export class PostFX {
       intensity: 1.5,
       bias: 0.025,
       fade: 0.02,
-      resolutionScale: 0.5,
+      resolutionScale: 0.4,
     })
     this.ssaoPass = new EffectPass(camera as THREE.Camera, this.ssao)
     this.composer.addPass(this.ssaoPass)
@@ -362,23 +509,37 @@ export class PostFX {
     this.heightFog = new HeightFogEffect()
     this.heightFog.setBiomeTexture(this.biomeTarget.texture)
 
+    this.atmoPerspective = new AtmoPerspectiveEffect()
+
     this.bloom = new BloomEffect({
       blendFunction: BlendFunction.SCREEN,
-      luminanceThreshold: 0.82,
-      luminanceSmoothing: 0.08,
+      luminanceThreshold: 0.62,
+      luminanceSmoothing: 0.12,
       mipmapBlur: true,
-      intensity: 0.5,
-      radius: 0.75,
-      levels: 6,
+      resolutionScale: 0.5,
+      intensity: 0.35,
+      radius: 0.85,
+      levels: 5,
     })
 
     this.composer.addPass(
       new EffectPass(camera as THREE.Camera,
-        this.toonRamp, this.biomeEffect, this.godRays, this.heightFog, this.bloom,
+        this.toonRamp, this.biomeEffect, this.godRays, this.heightFog, this.atmoPerspective, this.bloom,
       ),
     )
 
-    // ── Pass 5: Final polish ──
+    // ── Pass 5: Depth of field (subtle gameplay DOF) ──
+    this.dof = new DepthOfFieldEffect(camera as THREE.PerspectiveCamera, {
+      focusDistance: 0.02,
+      focalLength: 0.018,
+      bokehScale: 1.5,
+    })
+    this.dofPass = new EffectPass(camera as THREE.Camera, this.dof)
+    this.composer.addPass(this.dofPass)
+
+    // ── Pass 6: Eye adaptation + final polish ──
+    this.eyeAdapt = new EyeAdaptationEffect()
+
     this.chromatic = new ChromaticAberrationEffect({
       offset: new THREE.Vector2(0.0006, 0.0003),
       radialModulation: true,
@@ -392,7 +553,7 @@ export class PostFX {
 
     this.composer.addPass(
       new EffectPass(camera as THREE.Camera,
-        this.chromatic, this.vignette, this.grainEffect,
+        this.eyeAdapt, this.chromatic, this.vignette, this.grainEffect,
       ),
     )
   }
@@ -400,27 +561,28 @@ export class PostFX {
   setQuality(tier: QualityTier) {
     this.quality = tier
 
-    // SSAO — disable entirely on low, half-res on medium
     this.ssaoPass.enabled = tier !== 'low'
     this.normalPass.enabled = tier !== 'low'
 
-    // Bloom intensity
-    this.bloom.intensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.35 : 0.5
+    this.bloom.intensity = tier === 'low' ? 0.15 : tier === 'medium' ? 0.25 : 0.35
+
+    this.dofPass.enabled = tier !== 'low'
+    this.dof.bokehScale = tier === 'high' ? 1.5 : 1.0
   }
 
   resize(w: number, h: number) {
     this.composer.setSize(w, h)
-    this.biomeTarget.setSize(w, h)
+    this.biomeTarget.setSize(Math.floor(w / 4), Math.floor(h / 4))
   }
 
-  update(dt: number, sunUv: THREE.Vector2, godRayIntensity: number, fogStrength: number, camHeight = 10) {
+  update(dt: number, sunUv: THREE.Vector2, godRayIntensity: number, fogStrength: number, camHeight = 10, dayAmount = 1, duskAmount = 0) {
     this.time += dt
     this.grainEffect.setTime(this.time)
 
     const k = 1 - Math.exp(-dt * 2.2)
 
     // God ray quality
-    const targetSamples = this.quality === 'high' ? 20 : this.quality === 'medium' ? 14 : 10
+    const targetSamples = this.quality === 'high' ? 14 : this.quality === 'medium' ? 10 : 6
     const curSamples = (this.godRays.uniforms.get('uSamples') as THREE.Uniform).value as number
     this.godRays.setSamples(THREE.MathUtils.lerp(curSamples, targetSamples, k))
 
@@ -445,6 +607,33 @@ export class PostFX {
     this.heightFog.setStrength(fogStrength * fogMul)
     this.heightFog.setCamHeight(camHeight)
     this.heightFog.setSunScreenUv(sunUv)
+
+    // Warm/cool grading — subtle shift, don't crush colors
+    this.toonRamp.setCoolness(THREE.MathUtils.lerp(0.5, 0.35, dayAmount))
+    this.toonRamp.setWarmth(THREE.MathUtils.lerp(0.2, 0.45, dayAmount) + duskAmount * 0.15)
+
+    // Atmospheric perspective — horizon color shifts with time of day
+
+
+
+    const horizonCol = this._horizonTmp.copy(this._nightH).lerp(this._dayH, dayAmount)
+    horizonCol.lerp(this._duskH, duskAmount * 0.6)
+    this.atmoPerspective.setHorizonColor(horizonCol)
+    const atmoBase = this.quality === 'high' ? 0.6 : this.quality === 'medium' ? 0.45 : 0.3
+    this.atmoPerspective.setStrength(atmoBase)
+
+    // Eye adaptation — derive target luminance from time of day and
+    // smoothly adapt exposure. Full luminance feedback from the
+    // framebuffer would require a readback; instead we approximate
+    // scene brightness from sky state which correlates well and is free.
+    const sceneLum = dayAmount * 0.45 + duskAmount * 0.2 + 0.08
+    this.adaptedLuminance += (sceneLum - this.adaptedLuminance) * (1 - Math.exp(-this.adaptSpeed * dt))
+    const exposure = THREE.MathUtils.clamp(
+      this.targetLumKey / Math.max(0.01, this.adaptedLuminance),
+      this.minExposure,
+      this.maxExposure,
+    )
+    this.eyeAdapt.setExposure(exposure)
   }
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {

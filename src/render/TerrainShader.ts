@@ -113,14 +113,16 @@ export function makeTerrainMaterial(): THREE.ShaderMaterial {
         vec3 shoreDark = col * 0.7;
         col = mix(shoreDark, col, heightFade);
 
-        float ndl = max(0.0, dot(N, normalize(vec3(0.4, 0.8, 0.3))));
-        col *= 0.55 + 0.45 * ndl;
+        vec3 L = normalize(vec3(0.4, 0.8, 0.3));
+        float ndl = max(0.0, dot(N, L));
+        float wrap = max(0.0, dot(N, L) * 0.5 + 0.5);
+        col *= 0.65 + 0.35 * mix(wrap, ndl, 0.6);
 
-        float rim = pow(1.0 - max(0.0, dot(N, V)), 3.0);
-        col += rim * 0.04;
+        float rim = pow(1.0 - max(0.0, dot(N, V)), 2.5);
+        col += rim * vec3(0.04, 0.035, 0.03);
 
         float ao = smoothstep(0.0, 0.15, slopeAmt);
-        col *= 0.92 + 0.08 * (1.0 - ao);
+        col *= 0.94 + 0.06 * (1.0 - ao);
 
         gl_FragColor = vec4(col, 1.0);
       }

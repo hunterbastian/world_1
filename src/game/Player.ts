@@ -32,18 +32,18 @@ export class Player {
   private readonly stepListeners = new Set<(e: PlayerStepEvent) => void>()
   private readonly landingListeners = new Set<(e: PlayerLandingEvent) => void>()
 
-  // Movement constants (Destiny-tuned)
-  private readonly walkSpeed = 5.5
-  private readonly runSpeed = 7.0
-  private readonly crouchSpeed = 2.8
-  private readonly strafeMultiplier = 0.85
-  private readonly accel = 12.0
-  private readonly decel = 8.0
-  private readonly airControl = 0.3
+  // Movement constants (Destiny-tuned — heavier, more grounded)
+  private readonly walkSpeed = 5.2
+  private readonly runSpeed = 7.2
+  private readonly crouchSpeed = 2.6
+  private readonly strafeMultiplier = 0.82
+  private readonly accel = 18.0
+  private readonly decel = 14.0
+  private readonly airControl = 0.25
 
-  // Jump physics
-  private readonly jumpVelocity = 7.5
-  private readonly gravity = 22.0
+  // Jump physics — higher gravity = snappier, less floaty
+  private readonly jumpVelocity = 7.0
+  private readonly gravity = 28.0
   private verticalVel = 0
   private grounded = true
 

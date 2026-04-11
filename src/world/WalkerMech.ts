@@ -140,6 +140,13 @@ export class WalkerMech {
   public readonly limbs: WalkerLimbs
   public readonly stompListeners = new Set<(e: WalkerStompEvent) => void>()
 
+  // Material refs for cinematic animation
+  public eyeMat!: THREE.MeshStandardMaterial
+  public radiolariaMat!: THREE.MeshStandardMaterial
+
+  // Dormant state
+  public isDormant = true
+
   // Stomp phase tracking
   private stompPhase = 0
   private prevStompSin = 0
@@ -164,6 +171,36 @@ export class WalkerMech {
     return () => this.stompListeners.delete(cb)
   }
 
+  setDormant(dormant: boolean) {
+    this.isDormant = dormant
+    const { limbs } = this
+    if (dormant) {
+      limbs.hull.position.y = limbs.restHullY * 0.85
+      limbs.head.rotation.x = -0.26
+      limbs.weaponL.rotation.x = 0.18
+      limbs.weaponR.rotation.x = 0.18
+      for (const leg of limbs.legs) {
+        leg.upper.rotation.x = leg.restUpperX + 0.25
+        leg.lower.rotation.x = leg.restLowerX + 0.30
+        leg.foot.rotation.x = leg.restFootX - 0.15
+      }
+      this.eyeMat.emissiveIntensity = 0
+      this.radiolariaMat.emissiveIntensity = 0.15
+    } else {
+      limbs.hull.position.y = limbs.restHullY
+      limbs.head.rotation.x = 0
+      limbs.weaponL.rotation.x = 0
+      limbs.weaponR.rotation.x = 0
+      for (const leg of limbs.legs) {
+        leg.upper.rotation.x = leg.restUpperX
+        leg.lower.rotation.x = leg.restLowerX
+        leg.foot.rotation.x = leg.restFootX
+      }
+      this.eyeMat.emissiveIntensity = 3.2
+      this.radiolariaMat.emissiveIntensity = 0.8
+    }
+  }
+
   constructor(tier: WalkerTier, name: string) {
     this.tier = tier
     this.name = name
@@ -172,20 +209,21 @@ export class WalkerMech {
 
     const d = tierDims(tier)
 
-    const hullMat = new THREE.MeshStandardMaterial({ color: d.hullColor, roughness: 0.62, metalness: 0.72 })
+    const hullMat = new THREE.MeshStandardMaterial({ color: d.hullColor, roughness: 0.72, metalness: 0.60 })
     const armorMat = new THREE.MeshStandardMaterial({ color: d.armorColor, roughness: 0.55, metalness: 0.68 })
     const jointMat = new THREE.MeshStandardMaterial({ color: d.jointColor, roughness: 0.78, metalness: 0.55 })
     const panelMat = new THREE.MeshStandardMaterial({
       color: shadeColor(d.hullColor, 0.72), roughness: 0.88, metalness: 0.25,
     })
-    // Vex cyclops eye — glowing red-orange
     const eyeMat = new THREE.MeshStandardMaterial({
-      color: 0x220800, emissive: 0xff4400, emissiveIntensity: 2.5, roughness: 0.2, metalness: 0.0,
+      color: 0x220800, emissive: 0xff2200, emissiveIntensity: 3.2, roughness: 0.2, metalness: 0.0,
     })
-    // Radiolaria glow — milky white energy in joints/seams
     const radiolariaMat = new THREE.MeshStandardMaterial({
-      color: 0xe8e0d0, emissive: 0xf0e8d0, emissiveIntensity: 0.8, roughness: 0.3, metalness: 0.0,
+      color: 0xd8e4e8, emissive: 0xe0eaf0, emissiveIntensity: 0.8, roughness: 0.3, metalness: 0.0,
     })
+
+    this.eyeMat = eyeMat
+    this.radiolariaMat = radiolariaMat
 
     /* ============ HULL (dome body) ============ */
 
@@ -583,6 +621,8 @@ export class WalkerMech {
 
     const outlineThick = tier === 'scout' ? 0.04 : 0.06
     addOutlineShell(this.object3d, { thickness: outlineThick, color: 0x06060c, alpha: 0.65 })
+
+    this.setDormant(true)
   }
 
   update(dt: number) {

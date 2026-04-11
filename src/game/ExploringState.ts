@@ -1,13 +1,15 @@
 import * as THREE from 'three'
 import type { GameState, GameContext } from './GameState'
 import type { InputState } from './Input'
+import { WalkerActivationCinematic } from '../world/WalkerActivationCinematic'
 
 export class ExploringState implements GameState {
   readonly id = 'exploring' as const
 
-  private compass = { t: 0, angle: 0, has: false }
   private rest = { active: false, hold: 0, t: 0 }
   private walkerActivation = { hold: 0, nearWalkerIdx: -1 }
+  private walkerMount = { hold: 0, nearWalkerIdx: -1 }
+  private readonly cinematic = new WalkerActivationCinematic()
   private devFly = false
 
   enter(_ctx: GameContext) {}
@@ -17,7 +19,7 @@ export class ExploringState implements GameState {
   }
 
   update(ctx: GameContext, dt: number, input: InputState) {
-    const { player, cameraRig, poi, hud, journal, worldMap, walkers, camera } = ctx
+    const { player, cameraRig, poi, hud, journal, worldMap, walkers } = ctx
 
     // Dev fly toggle
     if (input.devFlyToggle) {
@@ -28,20 +30,32 @@ export class ExploringState implements GameState {
     // FP camera: mouse → camera yaw/pitch
     cameraRig.addOrbitDelta(input.mouseDeltaX, input.mouseDeltaY)
 
+    if (this.cinematic.isActive()) {
+      const still = this.cinematic.update(dt)
+      cameraRig.setMovementState(0, 1, false, false, 0)
+      cameraRig.setEyeHeight(player.standingEyeHeight)
+      cameraRig.update(dt, player.position)
+      if (!still) {
+        const w = this.cinematic['walker']
+        if (w) ctx.journal.setWalkerInfo({ name: w.name, tier: w.tier, mounted: false })
+        ctx.hud.setPrompt(null)
+      }
+      return
+    }
+
     if (this.devFly) {
-      // Noclip fly mode — WASD + Space/Ctrl for up/down, Shift for fast
       this.updateDevFly(ctx, dt, input)
     } else {
       if (!this.rest.active) {
         player.update(dt, input, cameraRig.getYaw())
       }
 
-      // Feed movement state to camera for bob, FOV, roll
       cameraRig.setMovementState(
         player.speed,
         player.sprinting ? 7.0 : 5.5,
         player.sprinting,
-        player.sliding
+        player.sliding,
+        input.right
       )
       cameraRig.setEyeHeight(player.eyeHeight)
     }
@@ -49,26 +63,7 @@ export class ExploringState implements GameState {
 
     if (input.journalToggle) journal.toggle()
 
-    // Compass
-    this.compass.t += dt
-    if (this.compass.t >= 1 / 12) {
-      this.compass.t = 0
-      const nearest = poi.nearestUndiscovered(player.position)
-      if (nearest) {
-        const to = nearest.position.clone().sub(player.position)
-        to.y = 0
-        to.normalize()
-        const fwd = new THREE.Vector3()
-        camera.getWorldDirection(fwd)
-        fwd.y = 0
-        fwd.normalize()
-        this.compass.angle = Math.atan2(to.x, to.z) - Math.atan2(fwd.x, fwd.z)
-        this.compass.has = true
-      } else {
-        this.compass.has = false
-      }
-    }
-    if (this.compass.has) hud.setCompassAngle(this.compass.angle)
+    hud.setCompassAngle(cameraRig.getYaw())
 
     // HUD
     hud.setStamina(player.stamina)
@@ -116,26 +111,28 @@ export class ExploringState implements GameState {
   private updateWalkerActivation(ctx: GameContext, dt: number, input: InputState) {
     const { player, walkers, hud } = ctx
     const activationRange = 8.0
-    const activationTime = 4.0 // seconds to hold E
+    const activationTime = 4.0
+    const mountRange = 5.0
+    const mountTime = 0.5
 
-    // Find nearest inactive walker
-    let nearestIdx = -1
-    let nearestDist = Infinity
+    // Find nearest inactive walker for activation
+    let nearestInactiveIdx = -1
+    let nearestInactiveDist = Infinity
     for (let i = 0; i < walkers.walkers.length; i++) {
       const w = walkers.walkers[i]
       if (w.activated) continue
       const d = w.object3d.position.distanceTo(player.position)
-      if (d < activationRange && d < nearestDist) {
-        nearestDist = d
-        nearestIdx = i
+      if (d < activationRange && d < nearestInactiveDist) {
+        nearestInactiveDist = d
+        nearestInactiveIdx = i
       }
     }
 
-    if (nearestIdx >= 0) {
-      // Near an inactive walker
-      if (this.walkerActivation.nearWalkerIdx !== nearestIdx) {
+    if (nearestInactiveIdx >= 0) {
+      // Near an inactive walker — activation flow
+      if (this.walkerActivation.nearWalkerIdx !== nearestInactiveIdx) {
         this.walkerActivation.hold = 0
-        this.walkerActivation.nearWalkerIdx = nearestIdx
+        this.walkerActivation.nearWalkerIdx = nearestInactiveIdx
       }
 
       if (input.interactHeld) {
@@ -147,22 +144,67 @@ export class ExploringState implements GameState {
       hud.setActivationRing(this.walkerActivation.hold)
 
       if (this.walkerActivation.hold >= 1) {
-        // Activate!
-        const walker = walkers.walkers[nearestIdx]
-        walker.activate()
+        const walker = walkers.walkers[nearestInactiveIdx]
+        const audioCtx = ctx.audio.listener.context
+        this.cinematic.start(walker, ctx.cameraRig, ctx.postfx, audioCtx, ctx.camera)
         this.walkerActivation.hold = 0
         this.walkerActivation.nearWalkerIdx = -1
         hud.setActivationRing(null)
       }
+
+      this.walkerMount.hold = 0
+      this.walkerMount.nearWalkerIdx = -1
+      return
+    }
+
+    // No inactive walker nearby — clear activation UI
+    if (this.walkerActivation.hold > 0) {
+      this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 1.2)
+      hud.setActivationRing(this.walkerActivation.hold > 0.01 ? this.walkerActivation.hold : null)
     } else {
-      // Not near any walker
-      if (this.walkerActivation.hold > 0) {
-        this.walkerActivation.hold = Math.max(0, this.walkerActivation.hold - dt * 1.2)
-        hud.setActivationRing(this.walkerActivation.hold > 0.01 ? this.walkerActivation.hold : null)
-      } else {
-        hud.setActivationRing(null)
+      hud.setActivationRing(null)
+    }
+    this.walkerActivation.nearWalkerIdx = -1
+
+    // Find nearest ACTIVATED walker for mounting
+    let nearestActiveIdx = -1
+    let nearestActiveDist = Infinity
+    for (let i = 0; i < walkers.walkers.length; i++) {
+      const w = walkers.walkers[i]
+      if (!w.activated) continue
+      const d = w.object3d.position.distanceTo(player.position)
+      if (d < mountRange && d < nearestActiveDist) {
+        nearestActiveDist = d
+        nearestActiveIdx = i
       }
-      this.walkerActivation.nearWalkerIdx = -1
+    }
+
+    if (nearestActiveIdx >= 0) {
+      if (this.walkerMount.nearWalkerIdx !== nearestActiveIdx) {
+        this.walkerMount.hold = 0
+        this.walkerMount.nearWalkerIdx = nearestActiveIdx
+      }
+
+      if (input.interactHeld) {
+        this.walkerMount.hold += dt
+        hud.setPrompt('Hold E to Mount')
+        if (this.walkerMount.hold >= mountTime) {
+          ctx.activeWalker = walkers.walkers[nearestActiveIdx]
+          ctx.requestStateChange('piloting')
+          this.walkerMount.hold = 0
+          this.walkerMount.nearWalkerIdx = -1
+          hud.setPrompt(null)
+          return
+        }
+      } else {
+        this.walkerMount.hold = Math.max(0, this.walkerMount.hold - dt * 2)
+        if (this.walkerMount.hold < 0.01) {
+          hud.setPrompt(null)
+        }
+      }
+    } else {
+      this.walkerMount.hold = 0
+      this.walkerMount.nearWalkerIdx = -1
     }
   }
 

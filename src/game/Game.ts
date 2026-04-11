@@ -24,6 +24,8 @@ import { GrassField } from '../world/GrassField'
 import { PauseMenu } from '../ui/PauseMenu'
 import type { GameState, GameStateId, GameContext } from './GameState'
 import { ExploringState } from './ExploringState'
+import { PilotingState } from './PilotingState'
+import { UISounds } from '../ui/UISounds'
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
@@ -73,17 +75,17 @@ export class Game {
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: true,
+      antialias: false,
       powerPreference: 'high-performance',
     })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     this.renderer.setSize(window.innerWidth, window.innerHeight, false)
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1.18
 
     this.renderer.shadowMap.enabled = true
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.renderer.shadowMap.type = THREE.PCFShadowMap
 
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(0x0b0f16)
@@ -109,10 +111,14 @@ export class Game {
       journal: this.journal,
       hud: this.hud,
       worldMap: this.worldMap,
+      audio: this.audio,
+      postfx: this.postfx,
+      activeWalker: undefined,
       requestStateChange: (id) => this.changeState(id),
     }
 
     this.states.set('exploring', new ExploringState())
+    this.states.set('piloting', new PilotingState())
     this.activeState = this.states.get('exploring')!
     this.activeState.enter(this.ctx)
 
@@ -160,15 +166,18 @@ export class Game {
 
     // Environment (always updates regardless of state/pause)
     this.sky.update(dt, this.renderer)
-    this.sky.updateShadowFocus(this.player.position)
+    const shadowTarget = this.ctx.activeWalker && this.activeState.id === 'piloting'
+      ? this.ctx.activeWalker.object3d.position
+      : this.player.position
+    this.sky.updateShadowFocus(shadowTarget)
     this.rim.sunDir.copy(this.sky.sunDirection)
-    this.rim.intensity = THREE.MathUtils.clamp(0.15 + this.sky.duskAmount * 0.55, 0, 0.8)
+    this.rim.intensity = THREE.MathUtils.clamp(0.25 + this.sky.duskAmount * 0.55, 0, 0.9)
     this.cloudDome.update(dt, this.sky)
     this.wind.update(dt)
 
     // Periodically refresh IBL to track day/night shifts
     this.iblTimer += dt
-    if (this.iblTimer > 30) {
+    if (this.iblTimer > 90) {
       this.iblTimer = 0
       this.buildIBL()
     }
@@ -179,6 +188,21 @@ export class Game {
     if (input.escapePressed) {
       this.paused = !this.paused
       this.pauseMenu.setOpen(this.paused)
+      if (this.paused) {
+        this.pauseMenu.setCharacterStats({
+          level: 1, health: 100, maxHealth: 100,
+          stamina: Math.round(this.player.stamina * 100), maxStamina: 100, speed: 1.0,
+        })
+        const aw = this.ctx.activeWalker
+        if (aw) {
+          this.pauseMenu.setWalkerStats({
+            name: aw.name, tier: aw.tier,
+            health: 100, maxHealth: 100,
+            armor: aw.tier === "assault" ? 80 : 40,
+            turretDamage: aw.tier === "assault" ? 25 : 15,
+          })
+        }
+      }
       if (this.paused && document.pointerLockElement === this.renderer.domElement) {
         document.exitPointerLock()
       }
@@ -201,11 +225,11 @@ export class Game {
 
     // Post-processing (always renders)
     // Use the sky-far sun position for god rays / fog, not the shadow-following light
-    const skySunPos = this.sky.sunDirection.clone().multiplyScalar(400)
+    const skySunPos = this._tmpSunPos.copy(this.sky.sunDirection).multiplyScalar(400)
     const sunUv = this.projectToScreenUv(skySunPos, this.camera)
     const godAmt = THREE.MathUtils.clamp(this.sky.duskAmount * 0.9 + (1 - this.sky.dayAmount) * 0.15, 0, 0.85)
     const fogAmt = THREE.MathUtils.clamp(0.06 + (1 - this.sky.dayAmount) * 0.14 + this.sky.duskAmount * 0.04, 0, 0.28)
-    this.postfx.update(dt, sunUv, godAmt * 0.55, fogAmt, this.camera.position.y)
+    this.postfx.update(dt, sunUv, godAmt * 0.55, fogAmt, this.camera.position.y, this.sky.dayAmount, this.sky.duskAmount)
     this.postfx.render(this.renderer, this.scene, this.camera)
 
     this.raf = requestAnimationFrame(this.tick)
@@ -227,7 +251,7 @@ export class Game {
   }
 
   private seedScene() {
-    const hemi = new THREE.HemisphereLight(0xd0e8ff, 0x4a5a48, 0.85)
+    const hemi = new THREE.HemisphereLight(0xc8deff, 0x8a7860, 1.0)
     this.scene.add(hemi)
 
     this.sky = new SkySystem({ scene: this.scene })
@@ -272,7 +296,7 @@ export class Game {
     this.grass = new GrassField({
       terrain: this.terrain,
       seed: 'world-seed-001',
-      count: 55000,
+      count: 35000,
     })
     this.grass.setQuality(this.qualityTier)
     this.scene.add(this.grass.object3d)
@@ -304,6 +328,8 @@ export class Game {
     this.hud.setHealth(1.0)
     this.hud.setXP(0)
 
+    this.showControlsHint()
+
     this.pauseMenu = new PauseMenu()
     document.body.appendChild(this.pauseMenu.root)
     this.pauseMenu.onResume = () => {
@@ -315,6 +341,9 @@ export class Game {
       }
     }
     this.pauseMenu.onQuit = () => {
+      window.location.reload()
+    }
+    this.pauseMenu.onRestart = () => {
       window.location.reload()
     }
 
@@ -341,6 +370,10 @@ export class Game {
 
     this.audio = new AudioSystem({ camera: this.camera, terrain: this.terrain, player: this.player })
     this.audio.registerWalkers(this.walkers.walkers)
+
+    const uiSounds = new UISounds(this.audio.listener)
+    this.pauseMenu.setUISounds(uiSounds)
+    this.journal.setUISounds(uiSounds)
     document.addEventListener(
       'pointerlockchange',
       () => {
@@ -374,17 +407,45 @@ export class Game {
     this.buildIBL()
   }
 
+  private readonly _tmpSunPos = new THREE.Vector3()
   private iblTimer = 0
 
   private buildIBL() {
+    const oldEnv = this.scene.environment
     const pmrem = new THREE.PMREMGenerator(this.renderer)
     const envRT = pmrem.fromScene(this.scene, 0.04, 0.1, 2000)
     this.scene.environment = envRT.texture
     pmrem.dispose()
+    if (oldEnv) oldEnv.dispose()
   }
 
   private projectToScreenUv(worldPos: THREE.Vector3, camera: THREE.Camera) {
     const v = worldPos.clone().project(camera)
     return new THREE.Vector2(v.x * 0.5 + 0.5, v.y * 0.5 + 0.5)
+  }
+
+  private showControlsHint() {
+    const hint = document.createElement('div')
+    Object.assign(hint.style, {
+      position: 'fixed',
+      bottom: '72px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      font: `500 11px/1.6 'Barlow Condensed', system-ui, sans-serif`,
+      letterSpacing: '0.18em',
+      textTransform: 'uppercase',
+      color: 'rgba(255,255,255,0.55)',
+      textAlign: 'center',
+      pointerEvents: 'none',
+      opacity: '0',
+      transition: 'opacity 0.8s ease',
+      zIndex: '15',
+      whiteSpace: 'pre-line',
+    })
+    hint.textContent = 'WASD to move  ·  Hold E to interact  ·  Shift to sprint'
+    document.body.appendChild(hint)
+    setTimeout(() => { hint.style.opacity = '1' }, 2000)
+    setTimeout(() => { hint.style.opacity = '0' }, 8000)
+    setTimeout(() => { hint.remove() }, 9500)
   }
 }

@@ -39,7 +39,7 @@ export class PerformanceManager {
   public tier: QualityTier = 'high'
 
   /** Smoothed frame time in ms (EMA). */
-  public emaMs = 16.7
+  public emaMs = 8.3
 
   private readonly halfLifeSec: number
   private readonly degradeToMediumMs: number
@@ -58,15 +58,15 @@ export class PerformanceManager {
     // Defaults tuned to be “sticky to high” for cinematic feel:
     // - Slow EMA so micro-stutters don't trigger downgrades.
     // - Medium is allowed briefly; low only under real sustained stress.
-    this.halfLifeSec = opts.emaHalfLifeSec ?? 3.2
+    this.halfLifeSec = opts.emaHalfLifeSec ?? 1.5
 
-    this.degradeToMediumMs = opts.degradeToMediumMs ?? 21.5
-    this.degradeToLowMs = opts.degradeToLowMs ?? 24.0
+    this.degradeToMediumMs = opts.degradeToMediumMs ?? 10.0
+    this.degradeToLowMs = opts.degradeToLowMs ?? 14.0
 
-    this.upgradeToHighMs = opts.upgradeToHighMs ?? 18.2
-    this.upgradeToMediumMs = opts.upgradeToMediumMs ?? 20.0
+    this.upgradeToHighMs = opts.upgradeToHighMs ?? 8.5
+    this.upgradeToMediumMs = opts.upgradeToMediumMs ?? 11.0
 
-    this.degradeSustainSec = opts.degradeSustainSec ?? 2.4
+    this.degradeSustainSec = opts.degradeSustainSec ?? 1.6
     this.upgradeSustainSec = opts.upgradeSustainSec ?? 2.8
 
     this.cooldownSec = opts.cooldownSec ?? 3.0

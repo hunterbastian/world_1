@@ -7,9 +7,12 @@ import type { SkySystem } from '../world/SkySystem'
 import type { WindSystem } from '../world/WindSystem'
 import type { PointsOfInterest } from '../world/PointsOfInterest'
 import type { WalkerMechs } from '../world/WalkerMechs'
+import type { WalkerMech } from '../world/WalkerMech'
 import type { JournalUI } from '../ui/Journal'
 import type { HUD } from '../ui/HUD'
 import type { WorldMap } from '../ui/WorldMap'
+import type { AudioSystem } from '../audio/AudioSystem'
+import type { PostFX } from '../render/PostFX'
 
 export type GameStateId = 'exploring' | 'piloting' | 'menu'
 
@@ -27,6 +30,9 @@ export interface GameContext {
   journal: JournalUI
   hud: HUD
   worldMap: WorldMap
+  audio: AudioSystem
+  postfx: PostFX
+  activeWalker?: WalkerMech
   requestStateChange: (id: GameStateId) => void
 }
 
