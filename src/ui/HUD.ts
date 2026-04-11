@@ -77,8 +77,8 @@ export class HUD {
     // XP and MECH stay as straight bars below the arcs
     const straightBars = this.makeDiv({
       position: 'relative',
-      top: '-30px',
-      left: '18px',
+      top: '-20px',
+      left: '24px',
       display: 'flex',
       flexDirection: 'column',
       gap: '5px',
@@ -117,22 +117,79 @@ export class HUD {
     })
     compassWrap.appendChild(compassFade)
 
-    // Moving strip
+    // Moving strip — 720px = 360° (2px per degree); N at x=360 (viewport center at 110)
+    const COMPASS_STRIP_W = 720
+    const COMPASS_CENTER_X = COMPASS_STRIP_W / 2
     this.compassStrip = this.makeDiv({
       position: 'absolute',
       top: '0',
       left: '0',
-      width: '100%',
+      width: `${COMPASS_STRIP_W}px`,
       height: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      font: `500 10px/1 ${this.font}`,
-      letterSpacing: '0.15em',
-      color: 'rgba(255,255,255,0.35)',
       userSelect: 'none',
       transition: 'none',
     })
+    const degToX = (deg: number) => {
+      const x = COMPASS_CENTER_X + (deg / 360) * COMPASS_STRIP_W
+      return ((x % COMPASS_STRIP_W) + COMPASS_STRIP_W) % COMPASS_STRIP_W
+    }
+
+    const cardinals: { deg: number; label: string }[] = [
+      { deg: 0, label: 'N' },
+      { deg: 90, label: 'E' },
+      { deg: 180, label: 'S' },
+      { deg: 270, label: 'W' },
+    ]
+    for (const { deg, label } of cardinals) {
+      const mark = this.makeDiv({
+        position: 'absolute',
+        left: `${degToX(deg)}px`,
+        top: '2px',
+        transform: 'translateX(-50%)',
+        font: `600 11px/1 ${this.font}`,
+        letterSpacing: '0.12em',
+        color: 'rgba(255,255,255,0.6)',
+        whiteSpace: 'nowrap',
+      })
+      mark.textContent = label
+      this.compassStrip.appendChild(mark)
+    }
+
+    const intercardinals: { deg: number; label: string }[] = [
+      { deg: 45, label: 'NE' },
+      { deg: 135, label: 'SE' },
+      { deg: 225, label: 'SW' },
+      { deg: 315, label: 'NW' },
+    ]
+    for (const { deg, label } of intercardinals) {
+      const mark = this.makeDiv({
+        position: 'absolute',
+        left: `${degToX(deg)}px`,
+        top: '4px',
+        transform: 'translateX(-50%)',
+        font: `500 9px/1 ${this.font}`,
+        letterSpacing: '0.1em',
+        color: 'rgba(255,255,255,0.3)',
+        whiteSpace: 'nowrap',
+      })
+      mark.textContent = label
+      this.compassStrip.appendChild(mark)
+    }
+
+    for (let deg = 0; deg < 360; deg += 15) {
+      if (deg % 45 === 0) continue
+      const tick = this.makeDiv({
+        position: 'absolute',
+        left: `${degToX(deg)}px`,
+        top: '10px',
+        transform: 'translateX(-50%)',
+        width: '1px',
+        height: '6px',
+        background: 'rgba(255,255,255,0.12)',
+      })
+      this.compassStrip.appendChild(tick)
+    }
+
     compassWrap.appendChild(this.compassStrip)
 
     // Center tick
@@ -229,8 +286,11 @@ export class HUD {
   }
 
   setCompassAngle(angleRad: number) {
-    const deg = (angleRad * 180) / Math.PI
-    this.compassStrip.style.transform = `translateX(${-deg * 0.6}px)`
+    const COMPASS_STRIP_W = 720
+    const yawDeg = ((angleRad * 180) / Math.PI) % 360
+    const wrapped = yawDeg < 0 ? yawDeg + 360 : yawDeg
+    const tx = (-wrapped / 360) * COMPASS_STRIP_W + 110
+    this.compassStrip.style.transform = `translateX(${tx}px)`
   }
 
   setCrosshair(visible: boolean) {

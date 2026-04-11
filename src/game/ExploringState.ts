@@ -6,7 +6,6 @@ import { WalkerActivationCinematic } from '../world/WalkerActivationCinematic'
 export class ExploringState implements GameState {
   readonly id = 'exploring' as const
 
-  private compass = { t: 0, angle: 0, has: false }
   private rest = { active: false, hold: 0, t: 0 }
   private walkerActivation = { hold: 0, nearWalkerIdx: -1 }
   private walkerMount = { hold: 0, nearWalkerIdx: -1 }
@@ -20,7 +19,7 @@ export class ExploringState implements GameState {
   }
 
   update(ctx: GameContext, dt: number, input: InputState) {
-    const { player, cameraRig, poi, hud, journal, worldMap, walkers, camera } = ctx
+    const { player, cameraRig, poi, hud, journal, worldMap, walkers } = ctx
 
     // Dev fly toggle
     if (input.devFlyToggle) {
@@ -64,26 +63,7 @@ export class ExploringState implements GameState {
 
     if (input.journalToggle) journal.toggle()
 
-    // Compass
-    this.compass.t += dt
-    if (this.compass.t >= 1 / 12) {
-      this.compass.t = 0
-      const nearest = poi.nearestUndiscovered(player.position)
-      if (nearest) {
-        const to = nearest.position.clone().sub(player.position)
-        to.y = 0
-        to.normalize()
-        const fwd = new THREE.Vector3()
-        camera.getWorldDirection(fwd)
-        fwd.y = 0
-        fwd.normalize()
-        this.compass.angle = Math.atan2(to.x, to.z) - Math.atan2(fwd.x, fwd.z)
-        this.compass.has = true
-      } else {
-        this.compass.has = false
-      }
-    }
-    if (this.compass.has) hud.setCompassAngle(this.compass.angle)
+    hud.setCompassAngle(cameraRig.getYaw())
 
     // HUD
     hud.setStamina(player.stamina)
