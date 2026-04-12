@@ -3,7 +3,9 @@ import * as THREE from 'three'
 export function makeTerrainMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     vertexColors: true,
+    depthWrite: true,
     uniforms: {
+      ...THREE.UniformsLib.fog,
       uTime: { value: 0 },
       uSeaLevel: { value: -2 },
     },
@@ -18,6 +20,8 @@ export function makeTerrainMaterial(): THREE.ShaderMaterial {
       varying float vSlope;
       varying float vHeight;
 
+      #include <logdepthbuf_pars_vertex>
+
       void main() {
         vec4 wp = modelMatrix * vec4(position, 1.0);
         vWorldPos = wp.xyz;
@@ -27,6 +31,7 @@ export function makeTerrainMaterial(): THREE.ShaderMaterial {
         vSlope = aSlope;
         vHeight = wp.y;
         gl_Position = projectionMatrix * viewMatrix * wp;
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
@@ -39,6 +44,8 @@ export function makeTerrainMaterial(): THREE.ShaderMaterial {
 
       uniform float uTime;
       uniform float uSeaLevel;
+
+      #include <logdepthbuf_pars_fragment>
 
       float hash(vec2 p) {
         p = fract(p * vec2(123.34, 345.45));
@@ -123,6 +130,7 @@ export function makeTerrainMaterial(): THREE.ShaderMaterial {
         col *= 0.92 + 0.08 * (1.0 - ao);
 
         gl_FragColor = vec4(col, 1.0);
+        #include <logdepthbuf_fragment>
       }
     `,
   })

@@ -78,6 +78,8 @@ function makeGrassMaterial(): THREE.ShaderMaterial {
       varying float vHeight;
       varying float vAO;
 
+      #include <logdepthbuf_pars_vertex>
+
       void main() {
         vUv = uv;
         vHeight = uv.y;
@@ -107,6 +109,7 @@ function makeGrassMaterial(): THREE.ShaderMaterial {
         vAO = 1.0 - (1.0 - heightFactor) * 0.3;
 
         gl_Position = projectionMatrix * viewMatrix * wp;
+        #include <logdepthbuf_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
@@ -117,6 +120,8 @@ function makeGrassMaterial(): THREE.ShaderMaterial {
       varying float vHeight;
       varying float vAO;
 
+      #include <logdepthbuf_pars_fragment>
+
       void main() {
         vec3 col = mix(uColorBase, uColorTip, vHeight);
         col *= vAO;
@@ -124,6 +129,7 @@ function makeGrassMaterial(): THREE.ShaderMaterial {
         float alpha = smoothstep(0.0, 0.05, vHeight) * (1.0 - smoothstep(0.92, 1.0, vHeight) * 0.3);
 
         gl_FragColor = vec4(col, alpha);
+        #include <logdepthbuf_fragment>
       }
     `,
   })
