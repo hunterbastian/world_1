@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { WalkerMech, animateWalker, type WalkerTier, type WalkerLimbs } from '../world/WalkerMech'
-import { buildKnightModel, animateKnight, type KnightLimbs } from '../game/KnightModel'
+import { WalkerMech, type WalkerTier, type WalkerLimbs } from '../world/WalkerMech'
+import { animateWalker } from '../world/WalkerMechAnimation'
+import { buildKnightModel, animateKnight, type KnightLimbs } from './KnightModel'
 
 function disposeObject3D(root: THREE.Object3D) {
   const materials = new Set<THREE.Material>()
