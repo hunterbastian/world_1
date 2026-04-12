@@ -9,6 +9,8 @@ export type InputState = {
   journalToggle: boolean
   interactHeld: boolean
   attackDown: boolean
+  mouseLeft: boolean
+  mouseLeftPressed: boolean
   escapePressed: boolean
   devFlyToggle: boolean
   flyUp: boolean
@@ -26,6 +28,7 @@ export class Input {
   private journalToggle = false
   private interact = false
   private attackDown = false
+  private _mouseLeftHeld = false
   private escapePressed = false
   private devFlyToggle = false
   private _locked = false
@@ -72,6 +75,8 @@ export class Input {
       journalToggle: this.journalToggle,
       interactHeld: this.interact,
       attackDown: this.attackDown,
+      mouseLeft: this._locked ? this._mouseLeftHeld : false,
+      mouseLeftPressed: this.attackDown,
       escapePressed: this.escapePressed,
       devFlyToggle: this.devFlyToggle,
       flyUp: this.keys.has('Space'),
@@ -103,15 +108,21 @@ export class Input {
       this.keys.clear()
       this.sprint = false
       this.interact = false
+      this._mouseLeftHeld = false
     }
   }
 
   private onMouseDown = (e: MouseEvent) => {
     if (!this._locked) return
-    if (e.button === 0) this.attackDown = true
+    if (e.button === 0) {
+      this.attackDown = true
+      this._mouseLeftHeld = true
+    }
   }
 
-  private onMouseUp = () => {}
+  private onMouseUp = (e: MouseEvent) => {
+    if (e.button === 0) this._mouseLeftHeld = false
+  }
 
   private onKeyDown = (e: KeyboardEvent) => {
     if (e.code === 'Escape') {

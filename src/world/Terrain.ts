@@ -119,6 +119,7 @@ export class Terrain {
 
     this.mesh = new THREE.Mesh(this.geometry, this.material)
     this.mesh.receiveShadow = true
+    this.mesh.frustumCulled = false
     // Biome ID pass expects userData; terrain is mostly grassland for fog grading.
     PostFX.tagBiome(this.mesh, biomeIndex('grassy_plains'))
     this.object3d.add(this.mesh)

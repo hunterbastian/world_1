@@ -24,6 +24,7 @@ export type InventoryItem = {
 export class PauseMenu {
   public readonly root: HTMLDivElement
   public onResume: (() => void) | null = null
+  public onRestart: (() => void) | null = null
   public onQuit: (() => void) | null = null
 
   private readonly contentArea: HTMLDivElement
@@ -84,6 +85,16 @@ export class PauseMenu {
       this.onResume?.()
     })
     nav.appendChild(resumeBtn)
+
+    const restartBtn = document.createElement('button')
+    restartBtn.type = 'button'
+    restartBtn.className = 'pause-menu-nav-btn'
+    restartBtn.textContent = 'Restart'
+    restartBtn.addEventListener('click', () => {
+      this.setOpen(false)
+      this.onRestart?.()
+    })
+    nav.appendChild(restartBtn)
 
     const quitBtn = document.createElement('button')
     quitBtn.type = 'button'

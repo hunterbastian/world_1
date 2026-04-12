@@ -13,6 +13,7 @@ import type { HUD } from '../ui/HUD'
 import type { WorldMap } from '../ui/WorldMap'
 import type { PostFX } from '../render/PostFX'
 import type { AudioSystem } from '../audio/AudioSystem'
+import type { ProjectileSystem } from './ProjectileSystem'
 
 export type GameStateId = 'exploring' | 'piloting' | 'menu'
 
@@ -33,6 +34,7 @@ export interface GameContext {
   worldMap: WorldMap
   postfx: PostFX
   audio: AudioSystem
+  projectiles: ProjectileSystem
   requestStateChange: (id: GameStateId) => void
 }
 

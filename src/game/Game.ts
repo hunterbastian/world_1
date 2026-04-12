@@ -26,6 +26,8 @@ import { TitleScreen } from '../ui/TitleScreen'
 import type { GameState, GameStateId, GameContext } from './GameState'
 import { ExploringState } from './ExploringState'
 import { PilotingState } from './PilotingState'
+import { MenuState } from './MenuState'
+import { ProjectileSystem } from './ProjectileSystem'
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer
@@ -66,10 +68,33 @@ export class Game {
   private qualityTier: QualityTier = 'high'
   private perfDebug = false
 
+  // Player stats (held at defaults until combat exists)
+  private playerHealth = 100
+  private playerMaxHealth = 100
+  private playerLevel = 1
+  private playerXP = 0
+  private playerXPToNext = 100
+
+  getPlayerStats() {
+    return {
+      level: this.playerLevel,
+      health: this.playerHealth,
+      maxHealth: this.playerMaxHealth,
+      stamina: Math.round(this.player.stamina * 100),
+      maxStamina: 100,
+      speed: this.player.speed,
+      xp: this.playerXP,
+      xpToNext: this.playerXPToNext,
+    }
+  }
+
+  // Systems
+  private projectiles!: ProjectileSystem
+
   // State machine
-  private paused = false
   private readonly states: Map<GameStateId, GameState> = new Map()
   private activeState!: GameState
+  private menuState!: MenuState
   private ctx!: GameContext
 
   // Title screen
@@ -122,11 +147,14 @@ export class Game {
       worldMap: this.worldMap,
       postfx: this.postfx,
       audio: this.audio,
+      projectiles: this.projectiles,
       requestStateChange: (id) => this.changeState(id),
     }
 
     this.states.set('exploring', new ExploringState())
     this.states.set('piloting', new PilotingState())
+    this.menuState = new MenuState(this.pauseMenu, this.renderer)
+    this.states.set('menu', this.menuState)
     this.activeState = this.states.get('exploring')!
 
     this.input = new Input(this.renderer.domElement)
@@ -240,21 +268,22 @@ export class Game {
 
       const input = this.input.consume()
 
-      // Pause toggle
+      // ESC → toggle menu state
       if (input.escapePressed) {
-        this.paused = !this.paused
-        this.pauseMenu.setOpen(this.paused)
-        if (this.paused && document.pointerLockElement === this.renderer.domElement) {
-          document.exitPointerLock()
+        if (this.activeState.id === 'menu') {
+          this.changeState(this.menuState.getPreviousStateId())
+        } else {
+          this.menuState.setPreviousState(this.activeState.id as 'exploring' | 'piloting')
+          this.changeState('menu')
         }
       }
 
-      if (!this.paused) {
-        this.activeState.update(this.ctx, dt, input)
+      this.activeState.update(this.ctx, dt, input)
 
-        this.poi.update(this.player.position)
-        this.audio.update()
-      }
+      // Update systems that run outside pause
+      this.projectiles.update(dt)
+      this.poi.update(this.player.position)
+      this.audio.update()
     }
 
     // Post-processing (always renders)
@@ -385,15 +414,17 @@ export class Game {
     this.hud.setHealth(1.0)
     this.hud.setXP(0)
 
+    this.projectiles = new ProjectileSystem(this.scene)
+
     this.pauseMenu = new PauseMenu()
     document.body.appendChild(this.pauseMenu.root)
-    this.pauseMenu.onResume = () => {
-      this.paused = false
-      this.pauseMenu.setOpen(false)
-      const result = this.renderer.domElement.requestPointerLock()
-      if (result && typeof (result as any).catch === 'function') {
-        ;(result as any).catch(() => {})
-      }
+    this.pauseMenu.onRestart = () => {
+      this.playerHealth = this.playerMaxHealth
+      this.playerLevel = 1
+      this.playerXP = 0
+      this.player.position.copy(this.spawn)
+      this.player.velocity.set(0, 0, 0)
+      this.changeState(this.menuState.getPreviousStateId())
     }
     this.pauseMenu.onQuit = () => {
       window.location.reload()

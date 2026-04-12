@@ -129,6 +129,10 @@ export function shadow(mesh: THREE.Mesh) {
   mesh.receiveShadow = true
 }
 
+function detail(mesh: THREE.Mesh) {
+  mesh.receiveShadow = true
+}
+
 export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; limbs: WalkerLimbs } {
   const group = new THREE.Group()
   const d = tierDims(tier)
@@ -151,7 +155,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
   const hull = new THREE.Group()
   hull.name = 'Hull'
 
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(d.bodyR, 24, 16), hullMat)
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(d.bodyR, 16, 10), hullMat)
   dome.scale.set(1.0, d.bodySquashY, d.bodyStretchZ)
   dome.position.y = d.hipY
   shadow(dome)
@@ -166,7 +170,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
   hull.add(belly)
 
   const collar = new THREE.Mesh(
-    new THREE.CylinderGeometry(d.bodyR * 1.06, d.bodyR * 1.10, d.collarH, 24),
+    new THREE.CylinderGeometry(d.bodyR * 1.06, d.bodyR * 1.10, d.collarH, 16),
     armorMat,
   )
   collar.scale.z = d.bodyStretchZ
@@ -183,7 +187,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
       panelMat,
     )
     strip.position.set(0, d.hipY + yOff, 0)
-    shadow(strip)
+    detail(strip)
     hull.add(strip)
   }
 
@@ -197,18 +201,18 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
   hull.add(bustle)
 
   const coreR = d.bodyR * 0.28
-  const core = new THREE.Mesh(new THREE.SphereGeometry(coreR, 16, 12), radiolariaMat)
+  const core = new THREE.Mesh(new THREE.SphereGeometry(coreR, 10, 8), radiolariaMat)
   core.position.set(0, d.hipY - d.bodyR * d.bodySquashY * 0.45, 0)
-  shadow(core)
+  detail(core)
   hull.add(core)
 
   const coreRing = new THREE.Mesh(
-    new THREE.TorusGeometry(coreR * 1.3, coreR * 0.15, 8, 20),
+    new THREE.TorusGeometry(coreR * 1.3, coreR * 0.15, 6, 14),
     jointMat,
   )
   coreRing.position.copy(core.position)
   coreRing.rotation.x = Math.PI / 2
-  shadow(coreRing)
+  detail(coreRing)
   hull.add(coreRing)
 
   for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
@@ -221,7 +225,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
       d.hipY,
       Math.sin(angle) * d.bodyR * d.bodyStretchZ * 0.95,
     )
-    shadow(seam)
+    detail(seam)
     hull.add(seam)
   }
 
@@ -231,11 +235,11 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
   head.name = 'Head'
 
   const neckRing = new THREE.Mesh(
-    new THREE.TorusGeometry(d.headW * 0.55, Math.max(0.025, d.headW * 0.065), 8, 20),
+    new THREE.TorusGeometry(d.headW * 0.55, Math.max(0.025, d.headW * 0.065), 6, 14),
     jointMat,
   )
   neckRing.rotation.x = Math.PI / 2
-  shadow(neckRing)
+  detail(neckRing)
   head.add(neckRing)
 
   const headBlock = new THREE.Mesh(
@@ -255,18 +259,18 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
   head.add(headCap)
 
   const eyeR = d.headW * 0.22
-  const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 12, 8), eyeMat)
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 8, 6), eyeMat)
   eye.position.set(0, d.headH * 0.48, -d.headD * 0.48)
-  shadow(eye)
+  detail(eye)
   head.add(eye)
 
   const socketRing = new THREE.Mesh(
-    new THREE.TorusGeometry(eyeR * 1.25, eyeR * 0.18, 8, 16),
+    new THREE.TorusGeometry(eyeR * 1.25, eyeR * 0.18, 6, 12),
     jointMat,
   )
   socketRing.position.copy(eye.position)
   socketRing.position.z -= 0.01
-  shadow(socketRing)
+  detail(socketRing)
   head.add(socketRing)
 
   for (const sx of [-1, 1]) {
@@ -275,7 +279,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
       radiolariaMat,
     )
     vein.position.set(sx * d.headW * 0.32, d.headH * 0.45, -d.headD * 0.505)
-    shadow(vein)
+    detail(vein)
     head.add(vein)
   }
 
@@ -284,7 +288,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
   for (const sx of [-1, 1]) {
     const sensor = new THREE.Mesh(sensorGeo, radiolariaMat)
     sensor.position.set(sx * d.headW * 0.48, d.headH * 0.32, -d.headD * 0.25)
-    shadow(sensor)
+    detail(sensor)
     head.add(sensor)
   }
 
@@ -303,7 +307,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
 
     const pylonR = d.upperR * 0.48
     const pylon = new THREE.Mesh(
-      new THREE.CylinderGeometry(pylonR, pylonR * 0.90, d.pylonLen, 10),
+      new THREE.CylinderGeometry(pylonR, pylonR * 0.90, d.pylonLen, 8),
       jointMat,
     )
     pylon.rotation.z = side * Math.PI / 2
@@ -312,7 +316,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
     wpn.add(pylon)
 
     const barrel = new THREE.Mesh(
-      new THREE.CylinderGeometry(d.barrelR, d.barrelR * 0.88, d.barrelLen, 12),
+      new THREE.CylinderGeometry(d.barrelR, d.barrelR * 0.88, d.barrelLen, 8),
       jointMat,
     )
     barrel.rotation.x = Math.PI / 2
@@ -322,12 +326,12 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
 
     const muzzleLen = d.barrelLen * 0.09
     const muzzle = new THREE.Mesh(
-      new THREE.CylinderGeometry(d.barrelR * 1.35, d.barrelR * 1.15, muzzleLen, 10),
+      new THREE.CylinderGeometry(d.barrelR * 1.35, d.barrelR * 1.15, muzzleLen, 8),
       jointMat,
     )
     muzzle.rotation.x = Math.PI / 2
     muzzle.position.set(side * d.pylonLen, 0, -d.barrelLen - muzzleLen * 0.42)
-    shadow(muzzle)
+    detail(muzzle)
     wpn.add(muzzle)
 
     wpn.position.set(
@@ -368,18 +372,18 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
     legGroup.position.set(hipX, hipAttachY, hipZ)
 
     const hipBall = new THREE.Mesh(
-      new THREE.SphereGeometry(d.upperR * 1.45, 10, 8),
+      new THREE.SphereGeometry(d.upperR * 1.45, 8, 6),
       jointMat,
     )
-    shadow(hipBall)
+    detail(hipBall)
     legGroup.add(hipBall)
 
     const hipGlow = new THREE.Mesh(
-      new THREE.TorusGeometry(d.upperR * 1.2, d.upperR * 0.12, 6, 16),
+      new THREE.TorusGeometry(d.upperR * 1.2, d.upperR * 0.12, 4, 12),
       radiolariaMat,
     )
     hipGlow.rotation.x = Math.PI / 2
-    shadow(hipGlow)
+    detail(hipGlow)
     legGroup.add(hipGlow)
 
     const restSplayZ = sx * 0.48
@@ -395,7 +399,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
     upperGroup.rotation.x = restLeanX
 
     const upperMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(d.upperR, d.upperR * 0.82, d.upperLen, 12),
+      new THREE.CylinderGeometry(d.upperR, d.upperR * 0.82, d.upperLen, 8),
       jointMat,
     )
     upperMesh.position.y = -d.upperLen * 0.5
@@ -414,20 +418,20 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
 
     const kneeR = (d.upperR + d.lowerR) * 0.56
     const kneeBall = new THREE.Mesh(
-      new THREE.SphereGeometry(kneeR, 10, 8),
+      new THREE.SphereGeometry(kneeR, 8, 6),
       jointMat,
     )
     kneeBall.position.y = -d.upperLen
-    shadow(kneeBall)
+    detail(kneeBall)
     upperGroup.add(kneeBall)
 
     const kneeGlow = new THREE.Mesh(
-      new THREE.TorusGeometry(kneeR * 0.9, kneeR * 0.15, 6, 16),
+      new THREE.TorusGeometry(kneeR * 0.9, kneeR * 0.15, 4, 12),
       radiolariaMat,
     )
     kneeGlow.position.y = -d.upperLen
     kneeGlow.rotation.x = Math.PI / 2
-    shadow(kneeGlow)
+    detail(kneeGlow)
     upperGroup.add(kneeGlow)
 
     const kneeShroud = new THREE.Mesh(
@@ -446,7 +450,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
     lowerGroup.rotation.x = restKneeBend
 
     const lowerMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(d.lowerR, d.lowerR * 0.78, d.lowerLen, 12),
+      new THREE.CylinderGeometry(d.lowerR, d.lowerR * 0.78, d.lowerLen, 8),
       jointMat,
     )
     lowerMesh.position.y = -d.lowerLen * 0.5
@@ -458,26 +462,26 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
       panelMat,
     )
     lowerPanel.position.set(0, -d.lowerLen * 0.38, sx * -d.lowerR * 0.2)
-    shadow(lowerPanel)
+    detail(lowerPanel)
     lowerGroup.add(lowerPanel)
 
     /* -- ankle -- */
 
     const ankleBall = new THREE.Mesh(
-      new THREE.SphereGeometry(d.lowerR * 0.85, 10, 8),
+      new THREE.SphereGeometry(d.lowerR * 0.85, 8, 6),
       jointMat,
     )
     ankleBall.position.y = -d.lowerLen
-    shadow(ankleBall)
+    detail(ankleBall)
     lowerGroup.add(ankleBall)
 
     const ankleGlow = new THREE.Mesh(
-      new THREE.TorusGeometry(d.lowerR * 0.7, d.lowerR * 0.12, 6, 12),
+      new THREE.TorusGeometry(d.lowerR * 0.7, d.lowerR * 0.12, 4, 10),
       radiolariaMat,
     )
     ankleGlow.position.y = -d.lowerLen
     ankleGlow.rotation.x = Math.PI / 2
-    shadow(ankleGlow)
+    detail(ankleGlow)
     lowerGroup.add(ankleGlow)
 
     /* -- foot + toes -- */
@@ -507,7 +511,7 @@ export function buildWalkerMechModel(tier: WalkerTier): { group: THREE.Group; li
       )
       toe.position.set(tc.tx, -d.footH * 0.42, -d.toeLen * 0.44 - d.footD * 0.18)
       toe.rotation.y = tc.angle
-      shadow(toe)
+      detail(toe)
       footGroup.add(toe)
     }
 

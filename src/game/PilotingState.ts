@@ -2,11 +2,17 @@ import * as THREE from 'three'
 import type { GameState, GameContext } from './GameState'
 import type { InputState } from './Input'
 
+const FIRE_INTERVAL = 0.5
+const AIM_CONE_COS = Math.cos(10 * Math.PI / 180)
+const AIM_RANGE = 150
+
 export class PilotingState implements GameState {
   readonly id = 'piloting' as const
 
   private dismountHold = 0
   private compass = { t: 0, angle: 0, has: false }
+  private fireCooldown = 0
+  private debugTarget: THREE.Mesh | null = null
 
   enter(ctx: GameContext) {
     const walker = ctx.activeWalker
@@ -14,27 +20,30 @@ export class PilotingState implements GameState {
 
     walker.mount()
 
-    // Hide on-foot player
     ctx.player.object3d.visible = false
 
-    // Camera: switch to third-person chase
     const tpDist = walker.tier === 'assault' ? 18 : 14
     const tpHeight = walker.tier === 'assault' ? 8 : 6
     ctx.cameraRig.setTPOffsets(tpDist, tpHeight)
     ctx.cameraRig.setMode('tp')
 
-    // HUD
     ctx.hud.setWalkerHealth(1.0)
     ctx.hud.setCrosshair(true, 'pilot')
     ctx.hud.setPrompt(null)
 
     this.dismountHold = 0
+    this.fireCooldown = 0
+
+    const targetGeo = new THREE.SphereGeometry(1.5, 12, 12)
+    const targetMat = new THREE.MeshBasicMaterial({ color: 0xff3333 })
+    this.debugTarget = new THREE.Mesh(targetGeo, targetMat)
+    this.debugTarget.position.copy(walker.object3d.position).add(new THREE.Vector3(30, 5, 20))
+    ctx.scene.add(this.debugTarget)
   }
 
   exit(ctx: GameContext) {
     const walker = ctx.activeWalker
     if (walker) {
-      // Place player next to Walker on dismount
       const offset = new THREE.Vector3(
         Math.sin(walker.heading + Math.PI * 0.5) * 4,
         0,
@@ -51,15 +60,20 @@ export class PilotingState implements GameState {
     ctx.activeWalker = null
     ctx.player.object3d.visible = true
 
-    // Camera: back to first-person
     ctx.cameraRig.setMode('fp')
 
-    // HUD cleanup
     ctx.hud.setWalkerHealth(null)
     ctx.hud.setCrosshair(false)
     ctx.hud.setPrompt(null)
 
     this.dismountHold = 0
+
+    if (this.debugTarget) {
+      ctx.scene.remove(this.debugTarget)
+      this.debugTarget.geometry.dispose()
+      ;(this.debugTarget.material as THREE.MeshBasicMaterial).dispose()
+      this.debugTarget = null
+    }
   }
 
   update(ctx: GameContext, dt: number, input: InputState) {
@@ -68,19 +82,26 @@ export class PilotingState implements GameState {
 
     const { cameraRig, hud, terrain, poi, camera } = ctx
 
-    // Mouse look (orbits around Walker in TP mode)
     cameraRig.addOrbitDelta(input.mouseDeltaX, input.mouseDeltaY)
 
-    // Walker movement: WASD steers relative to camera yaw
     walker.moveUpdate(dt, input.forward, input.right, input.sprint, terrain)
 
-    // Keep player position synced with Walker (so world systems like audio stay correct)
     ctx.player.position.copy(walker.object3d.position)
     ctx.player.position.y = terrain.heightAtXZ(ctx.player.position.x, ctx.player.position.z)
 
-    // Camera follows Walker hull top
     const followTarget = walker.getHullTopPosition()
     cameraRig.update(dt, followTarget)
+
+    // Firing
+    this.fireCooldown = Math.max(0, this.fireCooldown - dt)
+    if (input.mouseLeft && this.fireCooldown <= 0) {
+      this.fireCooldown = FIRE_INTERVAL
+      const muzzle = walker.getMuzzleWorldPosition()
+      const dir = new THREE.Vector3()
+      camera.getWorldDirection(dir)
+      const aimDir = this.applyAutoAim(camera, muzzle, dir)
+      ctx.projectiles.fire(muzzle, aimDir)
+    }
 
     // Compass to nearest POI
     this.compass.t += dt
@@ -123,5 +144,28 @@ export class PilotingState implements GameState {
         }
       }
     }
+  }
+
+  private applyAutoAim(
+    camera: THREE.PerspectiveCamera,
+    muzzle: THREE.Vector3,
+    baseDir: THREE.Vector3,
+  ): THREE.Vector3 {
+    if (!this.debugTarget) return baseDir
+
+    const camPos = camera.position
+    const camFwd = new THREE.Vector3()
+    camera.getWorldDirection(camFwd)
+
+    const toTarget = this.debugTarget.position.clone().sub(camPos)
+    const dist = toTarget.length()
+    if (dist > AIM_RANGE || dist < 1) return baseDir
+
+    toTarget.normalize()
+    if (camFwd.dot(toTarget) > AIM_CONE_COS) {
+      return this.debugTarget.position.clone().sub(muzzle).normalize()
+    }
+
+    return baseDir
   }
 }
